@@ -1,5 +1,5 @@
 // src/js/pages/dashboard.js
-import { state } from '../lib/store.js'
+import { state, getAccount } from '../lib/store.js'
 import { showToast } from '../lib/toast.js'
 import { navigate } from '../lib/router.js'
 import { fmt, fmtShort, fmtDate, monthKey, monthLabel } from '../lib/utils.js'

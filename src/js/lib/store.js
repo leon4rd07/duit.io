@@ -68,3 +68,17 @@ export function resetSplitState() {
     scanImgFull: '', payAccountId: state.accounts[0]?.id || '',
   }
 }
+
+// ── Global helper functions ───────────────────────────────────────────
+export function getAccount(id) {
+  return state.accounts.find(a => a.id === id)
+}
+
+export function fmtShortLocal(n) {
+  const a = Math.abs(n)
+  if (a >= 1e9) return 'Rp ' + (a/1e9).toFixed(1) + 'M'
+  if (a >= 1e6) return 'Rp ' + (a/1e6).toFixed(1) + 'jt'
+  if (a >= 1e3) return 'Rp ' + (a/1e3).toFixed(0) + 'rb'
+  return 'Rp ' + a
+}
+window.getAccount = getAccount

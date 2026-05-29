@@ -57,3 +57,8 @@ async function doTransfer() {
 
 
 export { renderTransfer, doTransfer }
+
+function openTransferModal() {
+  window.navigate('transfer')
+}
+window.openTransferModal = openTransferModal
