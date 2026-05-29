@@ -1,6 +1,7 @@
 // src/js/lib/categories.js
 // ── Category management ───────────────────────────────────────────────
-export { DEFAULT_CATS, GROUP_ORDER_EXPENSE, GROUP_ORDER_INCOME } from './config.js'
+import { DEFAULT_CATS, GROUP_ORDER_EXPENSE, GROUP_ORDER_INCOME } from './config.js'
+export { DEFAULT_CATS, GROUP_ORDER_EXPENSE, GROUP_ORDER_INCOME }
 import { safeJSON } from './utils.js'
 
 // ── Persistence ───────────────────────────────────────────────────────
