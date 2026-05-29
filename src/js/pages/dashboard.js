@@ -9,7 +9,7 @@ import * as DB from '../lib/supabase.js'
 
 // ===== DASHBOARD =====
 function renderDashboard(area, actions) {
-  const mk = monthKey(dashboardMonth);
+  const mk = monthKey(state.dashboardMonth);
   const monthTx = state.transactions.filter(t => t.date?.startsWith(mk));
   const income = monthTx.filter(t=>t.type==='income').reduce((s,t)=>s+Number(t.amount),0);
   const expense = monthTx.filter(t=>t.type==='expense').reduce((s,t)=>s+Number(t.amount),0);
@@ -20,12 +20,12 @@ function renderDashboard(area, actions) {
   actions.innerHTML = `
     <div class="month-nav">
       <button onclick="changeMonth(-1)">‹</button>
-      <span>${monthLabel(dashboardMonth)}</span>
+      <span>${monthLabel(state.dashboardMonth)}</span>
       <button onclick="changeMonth(1)">›</button>
     </div>`;
 
   // Build daily cashflow data
-  const daysInMonth = new Date(dashboardMonth.getFullYear(), dashboardMonth.getMonth()+1, 0).getDate();
+  const daysInMonth = new Date(state.dashboardMonth.getFullYear(), state.dashboardMonth.getMonth()+1, 0).getDate();
   const dailyData = Array.from({length:daysInMonth},(_,i)=>({day:i+1,inc:0,exp:0}));
   monthTx.forEach(t=>{
     const d = parseInt(t.date?.split('-')[2]||'1')-1;
@@ -122,7 +122,7 @@ function renderDashboard(area, actions) {
 }
 
 function changeMonth(delta) {
-  dashboardMonth = new Date(dashboardMonth.getFullYear(), dashboardMonth.getMonth()+delta, 1);
+  state.dashboardMonth = new Date(state.dashboardMonth.getFullYear(), state.dashboardMonth.getMonth()+delta, 1);
   navigate('dashboard');
 }
 

@@ -356,8 +356,8 @@ async function submitBudgetModal() {
     .upsert([{ user_id: state.currentUser.id, category: _selectedBudgetCat, limit_amount: limit, month: mk }], { onConflict: 'user_id,category,month' })
     .select().single();
   if (error) { showToast(error.message, 'error'); return; }
-  const idx = allBudgets.findIndex(b => b.id === data.id);
-  if (idx >= 0) allBudgets[idx] = data; else allBudgets.push(data);
+  const idx = state.budgets.findIndex(b => b.id === data.id);
+  if (idx >= 0) state.budgets[idx] = data; else state.budgets.push(data);
   closeSheet('budget-modal');
   showToast('Anggaran disimpan!');
   navigate('budget');
@@ -400,7 +400,7 @@ async function submitRecurringModal() {
     .insert([{ user_id: state.currentUser.id, name, type: _recType, amount, category, account_id, frequency }])
     .select().single();
   if (error) { showToast(error.message, 'error'); return; }
-  allRecurring.push(data);
+  state.recurring.push(data);
   closeSheet('recurring-modal');
   showToast('Transaksi rutin ditambahkan!');
   navigate('recurring');
@@ -408,10 +408,10 @@ async function submitRecurringModal() {
 
 // Override the old deleteRecurring to use confirm modal
 function deleteRecurring(id) {
-  const r = allRecurring.find(x => x.id === id);
+  const r = state.recurring.find(x => x.id === id);
   showConfirm('🗑️', 'Hapus Rutin', `Hapus "${r?.name}" dari transaksi rutin?`, 'Ya, hapus', 'btn-danger', async () => {
     await state.supabase.from('recurring').delete().eq('id', id);
-    allRecurring = allRecurring.filter(x => x.id !== id);
+    state.recurring = state.recurring.filter(x => x.id !== id);
     showToast('Dihapus');
     navigate('recurring');
   });
@@ -446,7 +446,7 @@ async function submitDebtModal() {
     .insert([{ user_id: state.currentUser.id, contact_name: name, direction: _debtDir, amount, remaining: amount, note, due_date: dueStr }])
     .select().single();
   if (error) { showToast(error.message, 'error'); return; }
-  allDebts.unshift(data);
+  state.debts.unshift(data);
   closeSheet('debt-modal');
   showToast('Hutang/piutang dicatat!');
   navigate('debts');
@@ -456,7 +456,7 @@ async function submitDebtModal() {
 let _settlingDebtId = null;
 
 function settleDebt(id) {
-  const d = allDebts.find(x => x.id === id);
+  const d = state.debts.find(x => x.id === id);
   if (!d) return;
   _settlingDebtId = id;
   document.getElementById('settle-title').textContent = `Pelunasan — ${d.contact_name}`;
@@ -935,6 +935,7 @@ function injectModalHTML() {
 
 // ===== ADD/EDIT TRANSACTION =====
 let editingTxId = null;
+let txType = 'expense';
 function openAddTransaction() {
   editingTxId = null;
   document.getElementById('tx-amount').value = '';
