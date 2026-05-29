@@ -627,6 +627,7 @@ function moveCatToGroup(catId, newGroup) {
 function openGroupManager() {
   const type   = _catPageType;
   const order  = getAllGroupsOrdered(type);
+  let existing = document.getElementById('cat-add-sheet');
   if (existing) existing.remove();
 
   const sheetEl = document.createElement('div');
@@ -666,6 +667,7 @@ function openGroupManager() {
 }
 
 function openGroupEditor(groupName) {
+  let existing = document.getElementById('cat-add-sheet');
   if (existing) existing.remove();
 
   sheetEl.id    = 'cat-add-sheet';
@@ -766,6 +768,7 @@ function openEditCatSheet(id) {
 
 function buildCatSheet(title, nameVal, groupVal, isEdit) {
   // Inject a temporary sheet into the page
+  let existing = document.getElementById('cat-add-sheet');
   if (existing) existing.remove();
 
   const allCats = getAllCats();
@@ -923,25 +926,50 @@ function saveNewCategory()  { saveCatSheet(false); }
 
 export function initModals() {
   injectModalHTML()
-  initTxModal()
-  // Expose all modal functions globally (used in onclick handlers)
-  const fns = [
-    'openAddTransaction','closeTxModal','setTxType','saveTx',
-    'openAddAccount','openEditAccount','submitAccountModal','deleteAccountFromModal',
-    'openAddBudget','submitBudgetModal','deleteBudget',
-    'openAddRecurring','setRecType','submitRecurringModal',
-    'openAddDebt','setDebtDir','submitDebtModal',
-    'settleDebt','submitSettleModal',
-    'openSheet','closeSheet','showConfirm','runConfirmAction',
-    'selectBank','updateCustomBankName','selectAcctCat','selectAcctColor',
-    'selectAcctType','selectEmoji','toggleCustomCatInput','addCustomCategory',
-    'toggleEmojiPicker','selectCustomEmoji',
-  ]
-  // All functions defined in this module scope are accessible after this
+
+  // Expose all modal functions globally for inline onclick handlers
+  window.openSheet              = openSheet
+  window.closeSheet             = closeSheet
+  window.showConfirm            = showConfirm
+  window.runConfirmAction       = runConfirmAction
+  window.openAddAccount         = openAddAccount
+  window.openEditAccount        = openEditAccount
+  window.submitAccountModal     = submitAccountModal
+  window.deleteAccountFromModal = deleteAccountFromModal
+  window.initAcctModal          = initAcctModal
+  window.renderBankPicker       = renderBankPicker
+  window.selectBank             = selectBank
+  window.updateCustomBankName   = updateCustomBankName
+  window.renderTypePicker       = renderTypePicker
+  window.selectAcctType         = selectAcctType
+  window.renderCatPicker        = renderCatPicker
+  window.selectAcctCat          = selectAcctCat
+  window.toggleCustomCatInput   = toggleCustomCatInput
+  window.addCustomCategory      = addCustomCategory
+  window.renderEmojiGrid        = renderEmojiGrid
+  window.selectEmoji            = selectEmoji
+  window.renderColorPicker      = renderColorPicker
+  window.selectAcctColor        = selectAcctColor
+  window.updateAccountPreview   = updateAccountPreview
+  window.openAddBudget          = openAddBudget
+  window.selectBudgetCat        = selectBudgetCat
+  window.renderBudgetCatPicker  = renderBudgetCatPicker
+  window.submitBudgetModal      = submitBudgetModal
+  window.openAddRecurring       = openAddRecurring
+  window.setRecType             = setRecType
+  window.submitRecurringModal   = submitRecurringModal
+  window.openAddDebt            = openAddDebt
+  window.setDebtDir             = setDebtDir
+  window.submitDebtModal        = submitDebtModal
+  window.settleDebt             = settleDebt
+  window.submitSettleModal      = submitSettleModal
+  window.openAddTransaction     = openAddTransaction
+  window.closeTxModal           = closeTxModal
+  window.setTxType              = setTxType
+  window.saveTx                 = saveTx
+  window.openEditTx             = openEditTx
 }
 
 function injectModalHTML() {
-  // Modal HTML injected here (same as before)
-  // Abbreviated — in a real refactor these would be in .html template files
-  if (existing) return // already injected by shell
+  // Modal HTML is already in index.html shell — nothing to inject
 }
