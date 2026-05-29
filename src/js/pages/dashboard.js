@@ -126,21 +126,37 @@ function changeMonth(delta) {
   navigate('dashboard');
 }
 
-function txItemHtml(t) {
+function txItemHtml(t, showDelete = false) {
   const acc = getAccount(t.account_id);
-  const icon = t.type==='transfer' ? '↔️' : (CAT_ICONS[t.category]||'💸');
+  const catObj = getCatObj(t.category||'');
+  const icon = t.type==='transfer' ? '↔️' : (catObj.icon||'💸');
   const iconBg = t.type==='income'?'var(--green-dim)':t.type==='transfer'?'rgba(96,165,250,0.12)':'var(--red-dim)';
   const amtClass = t.type==='income'?'income':t.type==='transfer'?'transfer':'expense';
-  const sign = t.type==='income'?'+':t.type==='transfer'?'':'-';
-  return `<div class="tx-item" onclick="openEditTx('${t.id}')">
-    <div class="tx-icon" style="background:${iconBg}">${icon}</div>
-    <div class="tx-info">
-      <div class="tx-name">${t.note||t.category||'Transaksi'}</div>
-      <div class="tx-sub">${t.category||'Transfer'} · ${acc?acc.name:''} · ${fmtDate(t.date)}</div>
+  const sign = t.type==='income'?'+':t.type==='transfer'?'':'−';
+  return `<div class="tx-item" style="position:relative">
+    <div style="display:flex;align-items:center;gap:12px;flex:1" onclick="openEditTx('${t.id}')">
+      <div class="tx-icon" style="background:${iconBg}">${icon}</div>
+      <div class="tx-info">
+        <div class="tx-name">${t.note||t.category||'Transaksi'}</div>
+        <div class="tx-sub">${t.category||'Transfer'} · ${acc?acc.name:''} · ${fmtDate(t.date)}</div>
+      </div>
+      <div class="tx-amount ${amtClass}">${sign}${fmtShort(t.amount)}</div>
     </div>
-    <div class="tx-amount ${amtClass}">${sign}${fmtShort(t.amount)}</div>
+    <button class="tx-delete-btn" onclick="event.stopPropagation();deleteTx('${t.id}')" title="Hapus">🗑️</button>
   </div>`;
 }
+
+async function deleteTx(id) {
+  if (!confirm('Hapus transaksi ini?')) return;
+  try {
+    await DB.deleteTransaction(id)
+    showToast('Transaksi dihapus')
+    navigate('transactions')
+  } catch(e) {
+    showToast('Gagal menghapus: ' + e.message, 'error')
+  }
+}
+window.deleteTx = deleteTx
 
 
 export { renderDashboard, changeMonth }

@@ -690,3 +690,58 @@ img{max-width:100%;display:block}
 
 /* ===== UTILITY ===== */
 .flex{display:flex}.items-center{align-items:center}.justify-between{justify-content:space-between}.gap-8{gap:8px}.gap-12{gap:12px}.mb-4{margin-bottom:4px}.mb-8{margin-bottom:8px}.mb-12{margin-bottom:12px}.mb-16{margin-bottom:16px}.mb-20{margin-bottom:20px}.text-sm{font-size:13px}.text-xs{font-size:11px}.text-muted{color:var(--text2)}.text-dim{color:var(--text3)}.font-bold{font-weight:700}.font-semibold{font-weight:600}.hidden{display:none!important}
+
+/* ===== ACCOUNTS ENHANCED ===== */
+.acct-group { margin-bottom: 20px; }
+.acct-group-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; background: var(--bg3); border-radius: 10px;
+  cursor: pointer; margin-bottom: 8px; border: 1px solid var(--border);
+  transition: var(--transition);
+}
+.acct-group-header:hover { background: var(--bg4); }
+.acct-group-chevron { font-size: 18px; color: var(--text3); transition: transform .2s; display: inline-block; }
+.acct-group-chevron.open { transform: rotate(0deg); }
+.acct-group-chevron:not(.open) { transform: rotate(-90deg); }
+.acct-group-body { overflow: hidden; transition: all .25s ease; }
+.acct-group-body.hidden { display: none; }
+
+/* Drag & drop */
+.acct-draggable { cursor: default; transition: opacity .2s, transform .15s, box-shadow .15s; }
+.acct-draggable.dragging { opacity: .4; transform: scale(.97); }
+.acct-draggable.drag-over { box-shadow: 0 0 0 2px var(--accent); transform: scale(1.01); }
+.acct-drag-handle {
+  position: absolute; top: 8px; left: 8px;
+  font-size: 16px; color: var(--text3); cursor: grab;
+  opacity: 0; transition: opacity .15s; line-height: 1;
+}
+.acct-draggable:hover .acct-drag-handle { opacity: 1; }
+.acct-drag-handle:active { cursor: grabbing; }
+
+/* Hide button */
+.acct-hide-btn {
+  position: absolute; top: 8px; right: 8px;
+  font-size: 14px; cursor: pointer; opacity: 0;
+  transition: opacity .15s; padding: 2px;
+}
+.acct-draggable:hover .acct-hide-btn { opacity: 1; }
+
+/* Notes */
+.acct-note-wrap { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; }
+.acct-note-input {
+  width: 100%; background: transparent; border: none;
+  color: var(--text2); font-size: 12px; font-family: inherit;
+  resize: none; outline: none; line-height: 1.5;
+}
+.acct-note-input::placeholder { color: var(--text3); }
+.acct-note-input:focus { color: var(--text); }
+
+/* ===== TX DELETE BUTTON ===== */
+.tx-delete-btn {
+  opacity: 0; transition: opacity .15s;
+  background: none; border: none; cursor: pointer;
+  font-size: 15px; padding: 4px 6px; border-radius: 6px;
+  color: var(--red); flex-shrink: 0;
+}
+.tx-item:hover .tx-delete-btn { opacity: 1; }
+.tx-item:hover .tx-delete-btn:hover { background: var(--red-dim); }

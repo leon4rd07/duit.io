@@ -77,7 +77,7 @@ async function boot() {
       hideLoading()
       showAuth()
     }
-  }, 10000)
+  }, 4000)
 }
 
 function hideLoading() {
