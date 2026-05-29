@@ -577,11 +577,21 @@ function goSplitFromScan(amount, note) {
 export { renderSplitBill, sbReset }
 
 // Expose all sb* functions for inline onclick
-const sbFns = [
-  'sbGoBack','sbStartScan','sbStartManual','sbRenderHome',
-  'sbGoToMembers','sbGoToAssign','sbGoToSummary',
-  'sbToggleMember','sbAddMemberByName','sbRemoveMember',
-  'sbToggleItemAssign','sbEqualizeAll','sbAddItem','sbRemoveItem',
-  'sbFinalize','sbCopyWA','sbReset','sbTogglePaid',
-]
-sbFns.forEach(name => { window[name] = eval(name) })
+window.sbGoBack         = sbGoBack
+window.sbStartScan      = sbStartScan
+window.sbStartManual    = sbStartManual
+window.sbGoToMembers    = sbGoToMembers
+window.sbGoToAssign     = sbGoToAssign
+window.sbGoToSummary    = sbGoToSummary
+window.sbToggleMember   = sbToggleMember
+window.sbAddMemberByName= sbAddMemberByName
+window.sbRemoveMember   = sbRemoveMember
+window.sbToggleItemAssign= sbToggleItemAssign
+window.sbEqualizeAll    = sbEqualizeAll
+window.sbAddItem        = sbAddItem
+window.sbRemoveItem     = sbRemoveItem
+window.sbFinalize       = sbFinalize
+window.sbCopyWA         = sbCopyWA
+window.sbReset          = sbReset
+window.sbTogglePaid     = sbTogglePaid
+window.renderSplitBill  = renderSplitBill

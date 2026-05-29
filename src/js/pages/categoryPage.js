@@ -501,10 +501,20 @@ function saveNewCategory()  { saveCatSheet(false); }
 
 export { renderCategoryManager }
 
-;[
-  'setCatPageType','openAddCatSheet','openEditCatSheet','closeCatSheet',
-  'buildCatSheet','setCatSheetType','setCatSheetEmoji','setCatSheetColor','saveCatSheet',
-  'openGroupManager','openGroupEditor','addNewGroup','deleteCat',
-  'handleCatDragStart','handleCatDragEnd','handleGroupDragOver',
-  'handleGroupDragLeave','handleDropToGroup','handleDropBeforeItem','moveCatToGroup',
-].forEach(name => { try { window[name] = eval(name) } catch(e) {} })
+window.setCatPageType    = setCatPageType
+window.openAddCatSheet   = openAddCatSheet
+window.openEditCatSheet  = openEditCatSheet
+window.closeCatSheet     = closeCatSheet
+window.setCatSheetType   = setCatSheetType
+window.setCatSheetEmoji  = setCatSheetEmoji
+window.setCatSheetColor  = setCatSheetColor
+window.saveCatSheet      = saveCatSheet
+window.openGroupManager  = openGroupManager
+window.openGroupEditor   = openGroupEditor
+window.addNewGroup       = addNewGroup
+window.deleteCat         = deleteCat
+window.handleCatDragStart= handleCatDragStart
+window.handleCatDragEnd  = handleCatDragEnd
+window.handleDropToGroup = handleDropToGroup
+window.handleDropBeforeItem = handleDropBeforeItem
+window.moveCatToGroup    = moveCatToGroup
