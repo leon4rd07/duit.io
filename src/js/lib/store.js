@@ -4,7 +4,7 @@
 
 export const state = {
   // Auth
-  state.currentUser: null,
+  currentUser: null,
   supabase:    null,
 
   // Data
@@ -16,7 +16,7 @@ export const state = {
 
   // UI
   currentPage:    'dashboard',
-  state.dashboardMonth: new Date(),
+  dashboardMonth: new Date(),
   txFilter:       'Semua',
   txView:         'list',         // 'list' | 'calendar'
   calMonth:       new Date(),
