@@ -81,6 +81,7 @@ export function handleGalleryFile(input, onCapture) {
 }
 
 export function initCamera() {
+  const modal = document.getElementById('camera-modal')
   if (!modal) return
   modal.innerHTML = `
     <div class="cam-topbar">
