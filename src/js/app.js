@@ -1,3 +1,5 @@
+import { Chart, registerables } from 'chart.js'
+Chart.register(...registerables)
 // src/js/app.js
 // ── Main entry point ─────────────────────────────────────────────────
 import '../css/main.css'

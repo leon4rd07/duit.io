@@ -159,6 +159,8 @@ async function deleteTx(id) {
 window.deleteTx = deleteTx
 
 
-export { renderDashboard, changeMonth }
+export { renderDashboard, changeMonth, txItemHtml }
+window.txItemHtml = txItemHtml
+window.deleteTx = deleteTx
 
 window.changeMonth = changeMonth
