@@ -1,9 +1,11 @@
 // src/js/pages/dashboard.js
 import { state, getAccount } from '../lib/store.js'
+import * as DB from '../lib/supabase.js'
 import { showToast } from '../lib/toast.js'
 import { navigate } from '../lib/router.js'
 import { fmt, fmtShort, fmtDate, monthKey, monthLabel } from '../lib/utils.js'
-import { getCatObj } from '../lib/categories.js'
+import { getCatObj,
+  CAT_COLORS} from '../lib/categories.js'
 import { AVATAR_COLORS } from '../lib/config.js'
 import * as DB from '../lib/supabase.js'
 

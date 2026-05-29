@@ -142,3 +142,7 @@ export function renameGroup(type, oldName, newName) {
 
 // Alias
 export const deleteCat = deleteCategory
+
+// Compatibility proxies for legacy code
+export const CAT_ICONS  = new Proxy({}, { get: (_, k) => getCatObj(k).icon  || '📦' })
+export const CAT_COLORS = new Proxy({}, { get: (_, k) => getCatObj(k).color || '#636e72' })
