@@ -41,6 +41,222 @@
   <!-- Toast -->
   <div id="toast"></div>
 
+  <!-- All Modals -->
+<!-- ADD TRANSACTION MODAL -->
+<div class="modal-overlay" id="tx-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title">Transaksi Baru</div>
+      <div class="modal-close" onclick="closeTxModal()">✕</div>
+    </div>
+    <div class="modal-body">
+      <div class="type-toggle" id="tx-type-toggle">
+        <div class="type-btn" onclick="setTxType('expense')">Pengeluaran</div>
+        <div class="type-btn" onclick="setTxType('income')">Pemasukan</div>
+        <div class="type-btn" onclick="setTxType('transfer')">Transfer</div>
+      </div>
+      <div class="field">
+        <label>Jumlah (Rp)</label>
+        <input type="number" id="tx-amount" placeholder="0" min="0"/>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Rekening</label>
+          <select id="tx-account"></select>
+        </div>
+        <div class="field" id="tx-toac-wrap" style="display:none">
+          <label>Ke Rekening</label>
+          <select id="tx-to-account"></select>
+        </div>
+        <div class="field" id="tx-cat-wrap">
+          <label>Kategori</label>
+          <select id="tx-category"></select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Keterangan</label>
+        <input type="text" id="tx-note" placeholder="mis. Makan siang, Gojek..."/>
+      </div>
+      <div class="field">
+        <label>Tanggal</label>
+        <input type="date" id="tx-date"/>
+      </div>
+      <button class="btn btn-accent" style="width:100%;justify-content:center;padding:13px" onclick="saveTx()" id="save-tx-btn">Simpan Transaksi</button>
+    </div>
+  </div>
+</div>
+
+<!-- ACCOUNT MODAL -->
+<div class="sheet-overlay" id="account-modal">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head">
+      <div class="sheet-title" id="acct-modal-title">Tambah Rekening</div>
+      <button class="sheet-close" onclick="closeSheet('account-modal')">✕</button>
+    </div>
+    <div class="sheet-body">
+
+      <div class="field">
+        <label>Nama Rekening</label>
+        <input type="text" id="acct-name" placeholder="mis. BCA Utama, SeaBank Harian, GoPay" oninput="updateAccountPreview()"/>
+      </div>
+
+<!-- BUDGET MODAL -->
+<div class="sheet-overlay" id="budget-modal">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head">
+      <div class="sheet-title">Tambah Anggaran</div>
+      <button class="sheet-close" onclick="closeSheet('budget-modal')">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div class="field">
+        <label>Kategori</label>
+        <div class="pick-grid" id="budget-cat-picker"></div>
+      </div>
+      <div class="field">
+        <label>Batas Anggaran (Rp)</label>
+        <input type="number" id="budget-limit" placeholder="0" min="0"/>
+      </div>
+      <div class="sheet-actions">
+        <button class="btn btn-ghost" onclick="closeSheet('budget-modal')">Batal</button>
+        <button class="btn btn-accent" onclick="submitBudgetModal()">Simpan Anggaran</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- RECURRING MODAL -->
+<div class="sheet-overlay" id="recurring-modal">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head">
+      <div class="sheet-title">Transaksi Rutin</div>
+      <button class="sheet-close" onclick="closeSheet('recurring-modal')">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div class="field">
+        <label>Nama</label>
+        <input type="text" id="rec-name" placeholder="mis. Gaji, Netflix, Kos"/>
+      </div>
+      <div class="field">
+        <label>Jenis</label>
+        <div class="type-toggle" id="rec-type-toggle" style="margin-bottom:0">
+          <div class="type-btn" onclick="setRecType('expense')">Pengeluaran</div>
+          <div class="type-btn" onclick="setRecType('income')">Pemasukan</div>
+        </div>
+      </div>
+      <div class="field">
+        <label>Jumlah (Rp)</label>
+        <input type="number" id="rec-amount" placeholder="0" min="0"/>
+      </div>
+      <div class="field">
+        <label>Kategori</label>
+        <select id="rec-category"></select>
+      </div>
+      <div class="field">
+        <label>Rekening</label>
+        <select id="rec-account"></select>
+      </div>
+      <div class="field">
+        <label>Frekuensi</label>
+        <select id="rec-freq">
+          <option value="daily">Harian</option>
+          <option value="weekly">Mingguan</option>
+          <option value="monthly" selected>Bulanan</option>
+          <option value="yearly">Tahunan</option>
+        </select>
+      </div>
+      <div class="sheet-actions">
+        <button class="btn btn-ghost" onclick="closeSheet('recurring-modal')">Batal</button>
+        <button class="btn btn-accent" onclick="submitRecurringModal()">Simpan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DEBT MODAL -->
+<div class="sheet-overlay" id="debt-modal">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head">
+      <div class="sheet-title">Catat Hutang / Piutang</div>
+      <button class="sheet-close" onclick="closeSheet('debt-modal')">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div class="field">
+        <label>Nama Orang</label>
+        <input type="text" id="debt-contact" placeholder="mis. Budi, Siti..."/>
+      </div>
+      <div class="field">
+        <label>Jenis</label>
+        <div class="type-toggle" id="debt-dir-toggle" style="margin-bottom:0">
+          <div class="type-btn" onclick="setDebtDir('lent')">💚 Saya meminjamkan</div>
+          <div class="type-btn" onclick="setDebtDir('owe')">❤️ Saya berhutang</div>
+        </div>
+      </div>
+      <div class="field">
+        <label>Jumlah (Rp)</label>
+        <input type="number" id="debt-amount" placeholder="0" min="0"/>
+      </div>
+      <div class="field">
+        <label>Keterangan</label>
+        <input type="text" id="debt-note" placeholder="mis. Pinjam buat makan, Titip belanja..."/>
+      </div>
+      <div class="field">
+        <label>Tanggal Jatuh Tempo (opsional)</label>
+        <input type="date" id="debt-due"/>
+      </div>
+      <div class="sheet-actions">
+        <button class="btn btn-ghost" onclick="closeSheet('debt-modal')">Batal</button>
+        <button class="btn btn-accent" onclick="submitDebtModal()">Catat</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SETTLE DEBT MODAL -->
+<div class="sheet-overlay" id="settle-modal">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head">
+      <div class="sheet-title" id="settle-title">Pelunasan</div>
+      <button class="sheet-close" onclick="closeSheet('settle-modal')">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div style="background:var(--bg3);border-radius:10px;padding:14px;margin-bottom:16px">
+        <div class="stat-label">Sisa Tagihan</div>
+        <div id="settle-remaining" style="font-size:22px;font-weight:700;color:var(--accent)">Rp 0</div>
+      </div>
+      <div class="field">
+        <label>Jumlah Pelunasan (Rp)</label>
+        <input type="number" id="settle-amount" placeholder="Kosongkan = lunas penuh" min="0"/>
+      </div>
+      <div class="sheet-actions">
+        <button class="btn btn-ghost" onclick="closeSheet('settle-modal')">Batal</button>
+        <button class="btn btn-accent" onclick="submitSettleModal()">✓ Catat Pelunasan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM MODAL -->
+<div class="sheet-overlay confirm-sheet" id="confirm-modal">
+  <div class="sheet" style="max-width:400px">
+    <div class="sheet-handle"></div>
+    <div class="sheet-body">
+      <div class="confirm-icon" id="confirm-icon">⚠️</div>
+      <div style="font-size:16px;font-weight:700;margin-bottom:8px" id="confirm-title">Konfirmasi</div>
+      <div class="confirm-msg" id="confirm-msg">Apakah kamu yakin?</div>
+      <div class="sheet-actions">
+        <button class="btn btn-ghost" onclick="closeSheet('confirm-modal')" id="confirm-cancel-btn">Batal</button>
+        <button class="btn btn-danger" onclick="runConfirmAction()" id="confirm-ok-btn">Ya, hapus</button>
+      </div>
+    </div>
+  </div>
+</div>
+
   <!-- Entry point -->
   <script type="module" src="/src/js/app.js"></script>
 </body>
