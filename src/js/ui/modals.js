@@ -937,25 +937,43 @@ function injectModalHTML() {
 let editingTxId = null;
 let txType = 'expense';
 function openAddTransaction() {
-  editingTxId = null;
-  document.getElementById('tx-amount').value = '';
-  document.getElementById('tx-note').value = '';
-  document.getElementById('tx-date').value = new Date().toISOString().split('T')[0];
-  setTxType('expense');
-  populateTxAccounts();
-  document.getElementById('tx-modal').classList.add('open');
+  try {
+    editingTxId = null;
+    const amtEl = document.getElementById('tx-amount');
+    const noteEl = document.getElementById('tx-note');
+    const dateEl = document.getElementById('tx-date');
+    const modalEl = document.getElementById('tx-modal');
+    if (!modalEl) { console.error('tx-modal not found in DOM'); return; }
+    if (amtEl) amtEl.value = '';
+    if (noteEl) noteEl.value = '';
+    if (dateEl) dateEl.value = new Date().toISOString().split('T')[0];
+    setTxType('expense');
+    populateTxAccounts();
+    modalEl.classList.add('open');
+  } catch(err) {
+    console.error('openAddTransaction error:', err);
+  }
 }
 
 function openEditTx(id) {
-  const t = state.transactions.find(x=>x.id===id);
-  if (!t) return;
-  editingTxId = id;
-  setTxType(t.type);
-  document.getElementById('tx-amount').value = t.amount;
-  document.getElementById('tx-note').value = t.note||'';
-  document.getElementById('tx-date').value = t.date;
-  populateTxAccounts(t.account_id, t.to_account_id, t.category);
-  document.getElementById('tx-modal').classList.add('open');
+  try {
+    const t = state.transactions.find(x=>x.id===id);
+    if (!t) return;
+    editingTxId = id;
+    setTxType(t.type);
+    const amtEl = document.getElementById('tx-amount');
+    const noteEl = document.getElementById('tx-note');
+    const dateEl = document.getElementById('tx-date');
+    const modalEl = document.getElementById('tx-modal');
+    if (!modalEl) { console.error('tx-modal not found'); return; }
+    if (amtEl) amtEl.value = t.amount;
+    if (noteEl) noteEl.value = t.note||'';
+    if (dateEl) dateEl.value = t.date;
+    populateTxAccounts(t.account_id, t.to_account_id, t.category);
+    modalEl.classList.add('open');
+  } catch(err) {
+    console.error('openEditTx error:', err);
+  }
 }
 
 function closeTxModal() { document.getElementById('tx-modal').classList.remove('open'); }

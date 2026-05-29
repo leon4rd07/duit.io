@@ -757,3 +757,17 @@ img{max-width:100%;display:block}
 }
 .tx-item:hover .tx-delete-btn { opacity: 1; color: var(--red); }
 .tx-delete-btn:hover { background: var(--red-dim) !important; }
+
+/* Account hide button */
+.acct-icon-btn {
+  background: rgba(0,0,0,0.2); border: none; cursor: pointer;
+  font-size: 13px; padding: 4px 7px; border-radius: 8px;
+  color: var(--text2); line-height: 1;
+}
+.acct-icon-btn:hover { background: var(--bg4); color: var(--text); }
+.btn-icon {
+  background: rgba(0,0,0,0.15); border: none; cursor: pointer;
+  font-size: 16px; padding: 6px 9px; border-radius: 8px;
+  color: var(--text2); line-height: 1;
+}
+.btn-icon:hover { background: var(--bg4); color: var(--text); }

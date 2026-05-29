@@ -148,7 +148,7 @@ function txItemHtml(t, showDelete = false) {
 }
 
 async function deleteTx(id) {
-  window.showConfirm('🗑️', 'Hapus Transaksi', 'Transaksi ini akan dihapus permanen.', 'Hapus', 'btn-danger', async () => {
+  const doDelete = async () => {
     try {
       await DB.deleteTransaction(id)
       showToast('Transaksi dihapus ✓')
@@ -156,7 +156,12 @@ async function deleteTx(id) {
     } catch(e) {
       showToast('Gagal menghapus: ' + e.message, 'error')
     }
-  })
+  }
+  if (typeof window.showConfirm === 'function') {
+    window.showConfirm('🗑️', 'Hapus Transaksi', 'Transaksi ini akan dihapus permanen.', 'Hapus', 'btn-danger', doDelete)
+  } else {
+    if (confirm('Hapus transaksi ini?')) doDelete()
+  }
 }
 window.deleteTx = deleteTx
 
