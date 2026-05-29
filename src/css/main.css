@@ -745,3 +745,15 @@ img{max-width:100%;display:block}
 }
 .tx-item:hover .tx-delete-btn { opacity: 1; }
 .tx-item:hover .tx-delete-btn:hover { background: var(--red-dim); }
+
+/* ===== TX ITEM IMPROVED ===== */
+.tx-item { border-radius: 10px; padding: 10px 4px; transition: background .15s; cursor: pointer; }
+.tx-item:hover { background: var(--bg3); border-radius: 10px; }
+.tx-delete-btn {
+  opacity: 0; transition: all .15s;
+  background: none; border: none; cursor: pointer;
+  font-size: 16px; padding: 6px 8px; border-radius: 8px;
+  color: var(--text3); flex-shrink: 0; line-height: 1;
+}
+.tx-item:hover .tx-delete-btn { opacity: 1; color: var(--red); }
+.tx-delete-btn:hover { background: var(--red-dim) !important; }

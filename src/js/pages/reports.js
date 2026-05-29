@@ -1,4 +1,5 @@
 // src/js/pages/reports.js
+import { Chart } from 'chart.js/auto'
 import { state } from '../lib/store.js'
 import { showToast } from '../lib/toast.js'
 import { navigate } from '../lib/router.js'

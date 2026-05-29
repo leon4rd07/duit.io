@@ -1,4 +1,5 @@
 // src/js/pages/dashboard.js
+import { Chart } from 'chart.js/auto'
 import { state, getAccount } from '../lib/store.js'
 import * as DB from '../lib/supabase.js'
 import { showToast } from '../lib/toast.js'
@@ -147,14 +148,15 @@ function txItemHtml(t, showDelete = false) {
 }
 
 async function deleteTx(id) {
-  if (!confirm('Hapus transaksi ini?')) return;
-  try {
-    await DB.deleteTransaction(id)
-    showToast('Transaksi dihapus')
-    navigate('transactions')
-  } catch(e) {
-    showToast('Gagal menghapus: ' + e.message, 'error')
-  }
+  window.showConfirm('🗑️', 'Hapus Transaksi', 'Transaksi ini akan dihapus permanen.', 'Hapus', 'btn-danger', async () => {
+    try {
+      await DB.deleteTransaction(id)
+      showToast('Transaksi dihapus ✓')
+      navigate('transactions')
+    } catch(e) {
+      showToast('Gagal menghapus: ' + e.message, 'error')
+    }
+  })
 }
 window.deleteTx = deleteTx
 
