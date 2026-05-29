@@ -10,16 +10,16 @@ const STORAGE_KEY       = 'custom_cats_v2'
 const HIDDEN_KEY        = 'hidden_cats'
 const GROUP_ORDER_KEY   = (type) => `group_order_${type}`
 
-export const getCustomCats  = () => safeJSON(localStorage.getItem(STORAGE_KEY), [])
-export const getHiddenCats  = () => safeJSON(localStorage.getItem(HIDDEN_KEY), [])
+export const getCustomCats  = () => safeJSON(localStorage.getItem(STORAGE_KEY), []) || []
+export const getHiddenCats  = () => safeJSON(localStorage.getItem(HIDDEN_KEY), []) || []
 export const saveCustomCats = (cats) => localStorage.setItem(STORAGE_KEY, JSON.stringify(cats))
 export const saveHiddenCats = (ids)  => localStorage.setItem(HIDDEN_KEY, JSON.stringify(ids))
 
 // ── Read all active categories ────────────────────────────────────────
 
 export function getAllCats() {
-  const hidden = getHiddenCats()
-  const custom = getCustomCats()
+  const hidden = getHiddenCats() || []
+  const custom = getCustomCats() || []
   const defaults = DEFAULT_CATS.filter(c => !hidden.includes(c.id))
   return [...defaults, ...custom]
 }

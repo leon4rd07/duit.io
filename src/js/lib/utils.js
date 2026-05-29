@@ -51,5 +51,6 @@ export const initials = (name = '') =>
 
 /** Safe JSON parse */
 export const safeJSON = (str, fallback = null) => {
+  if (str === null || str === undefined) return fallback
   try { return JSON.parse(str) } catch { return fallback }
 }
