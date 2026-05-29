@@ -13,8 +13,6 @@ import {
 import { AVATAR_COLORS, CAT_EMOJI_OPTIONS, CAT_COLOR_OPTIONS } from '../lib/config.js'
 
 // Replace global references with state
-const state.accounts = () => state.accounts
-const state.transactions = () => state.transactions
 
 
 // Local deleteCat wrapper
