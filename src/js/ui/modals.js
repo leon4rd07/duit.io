@@ -259,7 +259,7 @@ function openAddAccount() {
 }
 
 function openEditAccount(id) {
-  const a = allAccounts.find(x=>x.id===id);
+  const a = state.accounts.find(x=>x.id===id);
   if (!a) return;
   _editingAccountId = id;
   _selectedBank     = a.bank;
@@ -293,14 +293,14 @@ async function submitAccountModal() {
     acct_type: _selectedAcctType,
   };
   if (_editingAccountId) {
-    const {error} = await supabase_client.from('accounts').update(payload).eq('id',_editingAccountId);
+    const {error} = await state.supabase.from('accounts').update(payload).eq('id',_editingAccountId);
     if (error) { showToast(error.message,'error'); btn.disabled=false; btn.textContent='Simpan Perubahan'; return; }
     if (a) Object.assign(a, payload);
     showToast('Rekening diperbarui ✓');
   } else {
-    const {data,error} = await supabase_client.from('accounts').insert([{user_id:currentUser.id,...payload}]).select().single();
+    const {data,error} = await state.supabase.from('accounts').insert([{user_id:state.currentUser.id,...payload}]).select().single();
     if (error) { showToast(error.message,'error'); btn.disabled=false; btn.textContent='Simpan Rekening'; return; }
-    allAccounts.push(data);
+    state.accounts.push(data);
     showToast('Rekening ditambahkan! 🎉');
   }
   closeSheet('account-modal');
@@ -311,8 +311,8 @@ async function submitAccountModal() {
 function deleteAccountFromModal() {
   if (!_editingAccountId) return;
   showConfirm('🗑️','Hapus Rekening',`Hapus "${a?.name}"? Transaksi terkait tetap ada.`,'Ya, hapus','btn-danger', async ()=>{
-    await supabase_client.from('accounts').delete().eq('id',_editingAccountId);
-    allAccounts = allAccounts.filter(x=>x.id!==_editingAccountId);
+    await state.supabase.from('accounts').delete().eq('id',_editingAccountId);
+    state.accounts = state.accounts.filter(x=>x.id!==_editingAccountId);
     closeSheet('account-modal');
     showToast('Rekening dihapus');
     navigate('accounts');
@@ -352,8 +352,8 @@ async function submitBudgetModal() {
   const limit = parseFloat(document.getElementById('budget-limit').value);
   if (!limit || limit <= 0) { showToast('Masukkan jumlah anggaran', 'error'); return; }
   const mk = monthKey(new Date());
-  const { data, error } = await supabase_client.from('budgets')
-    .upsert([{ user_id: currentUser.id, category: _selectedBudgetCat, limit_amount: limit, month: mk }], { onConflict: 'user_id,category,month' })
+  const { data, error } = await state.supabase.from('budgets')
+    .upsert([{ user_id: state.currentUser.id, category: _selectedBudgetCat, limit_amount: limit, month: mk }], { onConflict: 'user_id,category,month' })
     .select().single();
   if (error) { showToast(error.message, 'error'); return; }
   const idx = allBudgets.findIndex(b => b.id === data.id);
@@ -372,7 +372,7 @@ function openAddRecurring() {
   document.getElementById('rec-amount').value = '';
   // populate selects
   document.getElementById('rec-category').innerHTML = cats.map(c => `<option value="${c}">${c}</option>`).join('');
-  document.getElementById('rec-account').innerHTML = allAccounts.map(a => `<option value="${a.id}">${a.name}</option>`).join('') || '<option>Tambah rekening dulu</option>';
+  document.getElementById('rec-account').innerHTML = state.accounts.map(a => `<option value="${a.id}">${a.name}</option>`).join('') || '<option>Tambah rekening dulu</option>';
   // set type toggle
   const btns = document.querySelectorAll('#rec-type-toggle .type-btn');
   btns.forEach((b,i) => { b.classList.remove('active-expense','active-income'); });
@@ -396,8 +396,8 @@ async function submitRecurringModal() {
   const frequency = document.getElementById('rec-freq').value;
   if (!name) { showToast('Masukkan nama', 'error'); return; }
   if (!amount) { showToast('Masukkan jumlah', 'error'); return; }
-  const { data, error } = await supabase_client.from('recurring')
-    .insert([{ user_id: currentUser.id, name, type: _recType, amount, category, account_id, frequency }])
+  const { data, error } = await state.supabase.from('recurring')
+    .insert([{ user_id: state.currentUser.id, name, type: _recType, amount, category, account_id, frequency }])
     .select().single();
   if (error) { showToast(error.message, 'error'); return; }
   allRecurring.push(data);
@@ -410,7 +410,7 @@ async function submitRecurringModal() {
 function deleteRecurring(id) {
   const r = allRecurring.find(x => x.id === id);
   showConfirm('🗑️', 'Hapus Rutin', `Hapus "${r?.name}" dari transaksi rutin?`, 'Ya, hapus', 'btn-danger', async () => {
-    await supabase_client.from('recurring').delete().eq('id', id);
+    await state.supabase.from('recurring').delete().eq('id', id);
     allRecurring = allRecurring.filter(x => x.id !== id);
     showToast('Dihapus');
     navigate('recurring');
@@ -442,8 +442,8 @@ async function submitDebtModal() {
   const dueStr = document.getElementById('debt-due').value || null;
   if (!name) { showToast('Masukkan nama orang', 'error'); return; }
   if (!amount) { showToast('Masukkan jumlah', 'error'); return; }
-  const { data, error } = await supabase_client.from('debts')
-    .insert([{ user_id: currentUser.id, contact_name: name, direction: _debtDir, amount, remaining: amount, note, due_date: dueStr }])
+  const { data, error } = await state.supabase.from('debts')
+    .insert([{ user_id: state.currentUser.id, contact_name: name, direction: _debtDir, amount, remaining: amount, note, due_date: dueStr }])
     .select().single();
   if (error) { showToast(error.message, 'error'); return; }
   allDebts.unshift(data);
@@ -471,7 +471,7 @@ async function submitSettleModal() {
   const payAmount = partial || d.remaining;
   const newRemaining = Math.max(0, d.remaining - payAmount);
   const settled = newRemaining === 0;
-  await supabase_client.from('debts').update({ remaining: newRemaining, settled }).eq('id', _settlingDebtId);
+  await state.supabase.from('debts').update({ remaining: newRemaining, settled }).eq('id', _settlingDebtId);
   d.remaining = newRemaining; d.settled = settled;
   closeSheet('settle-modal');
   showToast(settled ? 'Lunas! 🎉' : `Dibayar ${fmtShort(payAmount)}`);
@@ -926,50 +926,197 @@ function saveNewCategory()  { saveCatSheet(false); }
 
 export function initModals() {
   injectModalHTML()
-
-  // Expose all modal functions globally for inline onclick handlers
-  window.openSheet              = openSheet
-  window.closeSheet             = closeSheet
-  window.showConfirm            = showConfirm
-  window.runConfirmAction       = runConfirmAction
-  window.openAddAccount         = openAddAccount
-  window.openEditAccount        = openEditAccount
-  window.submitAccountModal     = submitAccountModal
-  window.deleteAccountFromModal = deleteAccountFromModal
-  window.initAcctModal          = initAcctModal
-  window.renderBankPicker       = renderBankPicker
-  window.selectBank             = selectBank
-  window.updateCustomBankName   = updateCustomBankName
-  window.renderTypePicker       = renderTypePicker
-  window.selectAcctType         = selectAcctType
-  window.renderCatPicker        = renderCatPicker
-  window.selectAcctCat          = selectAcctCat
-  window.toggleCustomCatInput   = toggleCustomCatInput
-  window.addCustomCategory      = addCustomCategory
-  window.renderEmojiGrid        = renderEmojiGrid
-  window.selectEmoji            = selectEmoji
-  window.renderColorPicker      = renderColorPicker
-  window.selectAcctColor        = selectAcctColor
-  window.updateAccountPreview   = updateAccountPreview
-  window.openAddBudget          = openAddBudget
-  window.selectBudgetCat        = selectBudgetCat
-  window.renderBudgetCatPicker  = renderBudgetCatPicker
-  window.submitBudgetModal      = submitBudgetModal
-  window.openAddRecurring       = openAddRecurring
-  window.setRecType             = setRecType
-  window.submitRecurringModal   = submitRecurringModal
-  window.openAddDebt            = openAddDebt
-  window.setDebtDir             = setDebtDir
-  window.submitDebtModal        = submitDebtModal
-  window.settleDebt             = settleDebt
-  window.submitSettleModal      = submitSettleModal
-  window.openAddTransaction     = openAddTransaction
-  window.closeTxModal           = closeTxModal
-  window.setTxType              = setTxType
-  window.saveTx                 = saveTx
-  window.openEditTx             = openEditTx
+  // window assignments already done at module level above
 }
 
 function injectModalHTML() {
   // Modal HTML is already in index.html shell — nothing to inject
 }
+
+// ===== ADD/EDIT TRANSACTION =====
+let editingTxId = null;
+function openAddTransaction() {
+  editingTxId = null;
+  document.getElementById('tx-amount').value = '';
+  document.getElementById('tx-note').value = '';
+  document.getElementById('tx-date').value = new Date().toISOString().split('T')[0];
+  setTxType('expense');
+  populateTxAccounts();
+  document.getElementById('tx-modal').classList.add('open');
+}
+
+function openEditTx(id) {
+  const t = state.transactions.find(x=>x.id===id);
+  if (!t) return;
+  editingTxId = id;
+  setTxType(t.type);
+  document.getElementById('tx-amount').value = t.amount;
+  document.getElementById('tx-note').value = t.note||'';
+  document.getElementById('tx-date').value = t.date;
+  populateTxAccounts(t.account_id, t.to_account_id, t.category);
+  document.getElementById('tx-modal').classList.add('open');
+}
+
+function closeTxModal() { document.getElementById('tx-modal').classList.remove('open'); }
+
+function setTxType(type) {
+  txType = type;
+  const btns = document.querySelectorAll('#tx-type-toggle .type-btn');
+  btns.forEach((b,i)=>{
+    b.classList.remove('active-expense','active-income','active-transfer');
+    if(['expense','income','transfer'][i]===type) b.classList.add('active-'+type);
+  });
+  document.getElementById('tx-toac-wrap').style.display = type==='transfer'?'block':'none';
+  document.getElementById('tx-cat-wrap').style.display = type==='transfer'?'none':'block';
+  populateTxCategories();
+}
+
+function populateTxAccounts(selAc, selToAc, selCat) {
+  const ac = document.getElementById('tx-account');
+  const toAc = document.getElementById('tx-to-account');
+  const opts = state.accounts.map(a=>`<option value="${a.id}" ${a.id===selAc?'selected':''}>${BANK_ICONS[a.bank]||'💳'} ${a.name} (${fmtShort(a.balance)})</option>`).join('');
+  ac.innerHTML = opts || '<option>Tambah rekening dulu</option>';
+  toAc.innerHTML = opts;
+  if (selToAc) { [...toAc.options].forEach(o=>{ if(o.value===selToAc) o.selected=true; }); }
+  populateTxCategories(selCat);
+}
+
+function populateTxCategories(selCat) {
+  const type = txType === 'income' ? 'income' : 'expense';
+  const groups = getCatGroups(type);
+  const sel = document.getElementById('tx-category');
+  sel.innerHTML = Object.entries(groups).map(([grp, cats]) =>
+    `<optgroup label="${grp}">` +
+    cats.map(c => {
+      const full = c.icon+' '+c.name;
+      return `<option value="${full}" ${full===selCat||c.name===selCat?'selected':''}>${full}</option>`;
+    }).join('') +
+    `</optgroup>`
+  ).join('');
+}
+
+async function saveTx() {
+  const btn = document.getElementById('save-tx-btn');
+  const amount = parseFloat(document.getElementById('tx-amount').value);
+  const account_id = document.getElementById('tx-account').value;
+  const note = document.getElementById('tx-note').value.trim();
+  const date = document.getElementById('tx-date').value;
+  const category = txType!=='transfer' ? document.getElementById('tx-category').value : '↔️ Transfer';
+  const to_account_id = txType==='transfer' ? document.getElementById('tx-to-account').value : null;
+
+  if (!amount || amount <= 0) { showToast('Masukkan jumlah yang valid','error'); return; }
+  if (!account_id) { showToast('Pilih rekening','error'); return; }
+  if (!date) { showToast('Pilih tanggal','error'); return; }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="btn-spinner"></span>Menyimpan...';
+
+  const payload = { user_id:state.currentUser.id, type:txType, amount, category, account_id, to_account_id, note, date };
+
+  try {
+    if (editingTxId) {
+      // Reverse old balance effect
+      const old = state.transactions.find(t=>t.id===editingTxId);
+      if (old) await reverseBalance(old);
+      await state.supabase.from('transactions').update(payload).eq('id',editingTxId);
+      const idx = state.transactions.findIndex(t=>t.id===editingTxId);
+      if(idx>=0) state.transactions[idx] = {...allTransactions[idx],...payload};
+    } else {
+      const { data, error } = await state.supabase.from('transactions').insert([payload]).select().single();
+      if (error) throw error;
+      state.transactions.unshift(data);
+    }
+    await applyBalance(payload);
+    closeTxModal();
+    showToast(editingTxId ? 'Transaksi diperbarui' : 'Transaksi disimpan!');
+    editingTxId = null;
+    navigate(currentPage);
+  } catch(e) {
+    showToast(e.message,'error');
+    btn.disabled = false;
+    btn.textContent = 'Simpan Transaksi';
+  }
+}
+
+async function applyBalance(t) {
+  const ac = state.accounts.find(a=>a.id===t.account_id);
+  if (!ac) return;
+  let newBal = Number(ac.balance);
+  if (t.type==='expense') newBal -= Number(t.amount);
+  else if (t.type==='income') newBal += Number(t.amount);
+  else if (t.type==='transfer') {
+    newBal -= Number(t.amount);
+    const toAc = state.accounts.find(a=>a.id===t.to_account_id);
+    if (toAc) {
+      const toNewBal = Number(toAc.balance)+Number(t.amount);
+      await state.supabase.from('accounts').update({balance:toNewBal}).eq('id',toAc.id);
+      toAc.balance = toNewBal;
+    }
+  }
+  await state.supabase.from('accounts').update({balance:newBal}).eq('id',ac.id);
+  ac.balance = newBal;
+}
+
+async function reverseBalance(t) {
+  const ac = state.accounts.find(a=>a.id===t.account_id);
+  if (!ac) return;
+  let newBal = Number(ac.balance);
+  if (t.type==='expense') newBal += Number(t.amount);
+  else if (t.type==='income') newBal -= Number(t.amount);
+  else if (t.type==='transfer') {
+    newBal += Number(t.amount);
+    const toAc = state.accounts.find(a=>a.id===t.to_account_id);
+    if (toAc) {
+      const toNewBal = Number(toAc.balance)-Number(t.amount);
+      await state.supabase.from('accounts').update({balance:toNewBal}).eq('id',toAc.id);
+      toAc.balance = toNewBal;
+    }
+  }
+  await state.supabase.from('accounts').update({balance:newBal}).eq('id',ac.id);
+  ac.balance = newBal;
+}
+
+// ── Module-level window assignments ──────────────────────────────────
+// These must be at module level so onclick handlers work before initModals() is called
+window.openSheet              = openSheet
+window.closeSheet             = closeSheet
+window.showConfirm            = showConfirm
+window.runConfirmAction       = runConfirmAction
+window.openAddAccount         = openAddAccount
+window.openEditAccount        = openEditAccount
+window.submitAccountModal     = submitAccountModal
+window.deleteAccountFromModal = deleteAccountFromModal
+window.initAcctModal          = initAcctModal
+window.renderBankPicker       = renderBankPicker
+window.selectBank             = selectBank
+window.updateCustomBankName   = updateCustomBankName
+window.renderTypePicker       = renderTypePicker
+window.selectAcctType         = selectAcctType
+window.renderCatPicker        = renderCatPicker
+window.selectAcctCat          = selectAcctCat
+window.toggleCustomCatInput   = toggleCustomCatInput
+window.addCustomCategory      = addCustomCategory
+window.renderEmojiGrid        = renderEmojiGrid
+window.selectEmoji            = selectEmoji
+window.renderColorPicker      = renderColorPicker
+window.selectAcctColor        = selectAcctColor
+window.updateAccountPreview   = updateAccountPreview
+window.openAddBudget          = openAddBudget
+window.selectBudgetCat        = selectBudgetCat
+window.renderBudgetCatPicker  = renderBudgetCatPicker
+window.submitBudgetModal      = submitBudgetModal
+window.openAddRecurring       = openAddRecurring
+window.setRecType             = setRecType
+window.submitRecurringModal   = submitRecurringModal
+window.openAddDebt            = openAddDebt
+window.setDebtDir             = setDebtDir
+window.submitDebtModal        = submitDebtModal
+window.settleDebt             = settleDebt
+window.submitSettleModal      = submitSettleModal
+window.openAddTransaction     = openAddTransaction
+window.closeTxModal           = closeTxModal
+window.setTxType              = setTxType
+window.saveTx                 = saveTx
+window.openEditTx             = openEditTx
+window.openEditAccount        = openEditAccount
+window.logRecurring           = typeof logRecurring !== 'undefined' ? logRecurring : () => {}
