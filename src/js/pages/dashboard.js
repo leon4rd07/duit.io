@@ -7,7 +7,6 @@ import { fmt, fmtShort, fmtDate, monthKey, monthLabel } from '../lib/utils.js'
 import { getCatObj,
   CAT_COLORS} from '../lib/categories.js'
 import { AVATAR_COLORS } from '../lib/config.js'
-import * as DB from '../lib/supabase.js'
 
 // ===== DASHBOARD =====
 function renderDashboard(area, actions) {

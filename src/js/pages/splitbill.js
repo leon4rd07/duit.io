@@ -9,7 +9,6 @@ import * as DB                from '../lib/supabase.js'
 
 import { callAI }    from '../lib/ai.js'
 import { openCamera } from '../ui/camera.js'
-import { resetSplitState } from '../lib/store.js'
 
 // ===== SPLIT BILL v2 — GoPay-style flow =====
 // State machine: 'home' | 'scanning' | 'bill_detail' | 'members' | 'assign' | 'summary'
