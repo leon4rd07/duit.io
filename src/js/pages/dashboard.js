@@ -5,7 +5,7 @@ import { showToast } from '../lib/toast.js'
 import { navigate } from '../lib/router.js'
 import { fmt, fmtShort, fmtDate, monthKey, monthLabel } from '../lib/utils.js'
 import { getCatObj, CAT_COLORS } from '../lib/categories.js'
-import { AVATAR_COLORS } from '../lib/config.js'
+import { AVATAR_COLORS, BANK_ICONS} from '../lib/config.js'
 
 // ===== DASHBOARD =====
 function renderDashboard(area, actions) {

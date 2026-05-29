@@ -121,3 +121,11 @@ export const CAT_COLOR_OPTIONS = [
   '#4ecdc4','#74b9ff','#7ab8f5','#a29bfe','#6c5ce7','#fd79a8',
   '#e84393','#c77dda','#636e72','#0984e3','#e17055','#b2bec3',
 ]
+
+export const BANK_ICONS = {
+  'BCA': '🏦', 'Mandiri': '🏦', 'BNI': '🏦', 'BRI': '🏦',
+  'GoPay': '💚', 'OVO': '💜', 'Dana': '🔵', 'ShopeePay': '🛍️',
+  'Tunai': '💵', 'SeaBank': '🌊', 'Jenius': '⚡', 'Blu': '🔵',
+  'Jago': '🐆', 'Allo': '🟠', 'OCBC': '🔴', 'BSI': '☪️',
+  'LinkAja': '🔴', 'Bibit': '🌱', 'Ajaib': '⚡',
+}

@@ -4,7 +4,7 @@ import { showToast }      from '../lib/toast.js'
 import { navigate }       from '../lib/router.js'
 import { fmt, fmtShort, monthKey} from '../lib/utils.js'
 import { CATEGORIES, getCatGroups, DEFAULT_CATS, getAllCats, getCatObj } from '../lib/categories.js'
-import { BANKS, ACCT_TYPES, ACCT_COLORS, AVATAR_COLORS } from '../lib/config.js'
+import { BANKS, ACCT_TYPES, ACCT_COLORS, AVATAR_COLORS, BANK_ICONS} from '../lib/config.js'
 import * as DB from '../lib/supabase.js'
 
 // ===== MODAL HELPERS =====
