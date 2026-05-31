@@ -94,6 +94,7 @@ export const GROUP_ORDER_INCOME  = ['Pemasukan', 'Ungrouped']
 export const PAGE_TITLES = {
   dashboard:    'Dashboard',
   accounts:     'Rekening',
+  accountDetail: 'Detail Rekening',
   transactions: 'Transaksi',
   transfer:     'Transfer',
   budget:       'Anggaran',
@@ -106,6 +107,7 @@ export const PAGE_TITLES = {
   categories:   'Kelola Kategori',
   notifSettings:'Notifikasi',
   reports:      'Laporan',
+  settings:     'Pengaturan',
 }
 
 export const CAT_EMOJI_OPTIONS = [
@@ -128,4 +130,22 @@ export const BANK_ICONS = {
   'Tunai': '💵', 'SeaBank': '🌊', 'Jenius': '⚡', 'Blu': '🔵',
   'Jago': '🐆', 'Allo': '🟠', 'OCBC': '🔴', 'BSI': '☪️',
   'LinkAja': '🔴', 'Bibit': '🌱', 'Ajaib': '⚡',
+}
+
+export const CURRENCIES = [
+  { code: 'IDR', symbol: 'Rp', name: 'Rupiah Indonesia', locale: 'id-ID' },
+  { code: 'USD', symbol: '$',  name: 'US Dollar',        locale: 'en-US' },
+  { code: 'EUR', symbol: '€',  name: 'Euro',             locale: 'de-DE' },
+  { code: 'JPY', symbol: '¥',  name: 'Japanese Yen',     locale: 'ja-JP' },
+  { code: 'SGD', symbol: 'S$', name: 'Singapore Dollar', locale: 'en-SG' },
+  { code: 'MYR', symbol: 'RM', name: 'Malaysian Ringgit',locale: 'ms-MY' },
+  { code: 'GBP', symbol: '£',  name: 'British Pound',    locale: 'en-GB' },
+  { code: 'AUD', symbol: 'A$', name: 'Australian Dollar',locale: 'en-AU' },
+  { code: 'CNY', symbol: '¥',  name: 'Chinese Yuan',     locale: 'zh-CN' },
+  { code: 'KRW', symbol: '₩',  name: 'Korean Won',       locale: 'ko-KR' },
+]
+
+export function getCurrentCurrency() {
+  const code = localStorage.getItem('currency') || 'IDR'
+  return CURRENCIES.find(c => c.code === code) || CURRENCIES[0]
 }

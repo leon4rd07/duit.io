@@ -58,7 +58,7 @@
       </div>
       <div class="field">
         <label>Jumlah (Rp)</label>
-        <input type="number" id="tx-amount" placeholder="0" min="0"/>
+        <input type="text" inputmode="numeric" class="money-input" id="tx-amount" placeholder="0" min="0"/>
       </div>
       <div class="field-row">
         <div class="field">
@@ -80,6 +80,12 @@
       </div>
       <div class="field">
         <label>Tanggal</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+          <button type="button" class="date-quick-btn" onclick="setTxDateQuick('today')">Hari ini</button>
+          <button type="button" class="date-quick-btn" onclick="setTxDateQuick('yesterday')">Kemarin</button>
+          <button type="button" class="date-quick-btn" onclick="setTxDateQuick(-2)">2 hari lalu</button>
+          <button type="button" class="date-quick-btn" onclick="setTxDateQuick(-7)">1 minggu lalu</button>
+        </div>
         <input type="date" id="tx-date"/>
       </div>
       <button class="btn btn-accent" style="width:100%;justify-content:center;padding:13px" onclick="saveTx()" id="save-tx-btn">Simpan Transaksi</button>
@@ -102,26 +108,103 @@
         <input type="text" id="acct-name" placeholder="mis. BCA Utama, SeaBank Harian, GoPay" oninput="updateAccountPreview()"/>
       </div>
 
+      <!-- Tipe Rekening -->
+      <div class="field">
+        <label>Tipe Rekening</label>
+        <div id="acct-type-picker" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+      </div>
+
+      <!-- Kategori (custom) -->
+      <div class="field">
+        <label style="display:flex;align-items:center;justify-content:space-between">
+          <span>Kategori</span>
+          <span style="font-size:11px;color:var(--accent);cursor:pointer;font-weight:600" onclick="toggleCustomCatInput()">+ Buat kategori baru</span>
+        </label>
+        <div id="acct-cat-picker" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div>
+        <div id="custom-cat-wrap" style="display:none">
+          <input type="text" id="custom-cat-input" placeholder="Nama kategori baru..."
+            style="width:100%;background:var(--bg3);border:1px solid var(--accent);border-radius:9px;padding:9px 13px;color:var(--text);font-size:13px;outline:none;margin-top:4px"
+            onkeydown="if(event.key==='Enter')addCustomCategory()"/>
+          <button class="btn btn-accent btn-sm" style="margin-top:6px" onclick="addCustomCategory()">Tambah Kategori</button>
+        </div>
+      </div>
+
+      <!-- Bank / Dompet -->
+      <div class="field">
+        <label>Bank / Dompet</label>
+        <div class="pick-grid" id="bank-picker"></div>
+        <div id="custom-bank-wrap" style="display:none;margin-top:10px">
+          <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.3px">Nama Bank / Dompet</div>
+          <input type="text" id="custom-bank-name" placeholder="mis. SeaBank, Jenius, Allo Bank..."
+            style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:9px;padding:10px 13px;color:var(--text);font-size:14px;outline:none"
+            oninput="updateCustomBankName()"/>
+        </div>
+      </div>
+
+      <!-- Emoji / Icon -->
+      <div class="field">
+        <label>Ikon Rekening <span style="color:var(--text3);font-weight:400;font-size:11px">(pilih manual)</span></label>
+        <div id="emoji-grid" style="display:flex;flex-wrap:wrap;gap:6px;background:var(--bg3);border-radius:10px;padding:10px;border:1px solid var(--border)"></div>
+      </div>
+
+      <!-- Warna -->
+      <div class="field">
+        <label>Warna Rekening</label>
+        <div id="acct-color-picker" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+      </div>
+
+      <!-- Saldo -->
+      <div class="field">
+        <label>Saldo Awal (Rp)</label>
+        <input type="text" inputmode="numeric" class="money-input" id="acct-balance" placeholder="0" min="0" oninput="updateAccountPreview()"/>
+      </div>
+
+      <!-- Live Preview -->
+      <div style="background:var(--bg3);border-radius:12px;padding:14px 16px;margin-bottom:16px;border:1px solid var(--border)">
+        <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px">Preview Kartu</div>
+        <div style="border-top:3px solid var(--accent);background:var(--bg2);border-radius:10px;padding:14px 16px" id="acct-preview-card">
+          <div style="font-size:11px;color:var(--text2);margin-bottom:4px" id="prev-bank-label">🏦 BCA</div>
+          <div style="font-size:14px;font-weight:600;margin-bottom:6px" id="prev-name">Nama Rekening</div>
+          <div style="font-size:18px;font-weight:700;color:var(--accent)" id="prev-balance">Rp 0</div>
+          <div style="margin-top:8px;display:flex;gap:6px" id="prev-badges"></div>
+        </div>
+      </div>
+
+      <div class="sheet-actions">
+        <button class="btn btn-ghost" onclick="closeSheet('account-modal')">Batal</button>
+        <button class="btn btn-accent" onclick="submitAccountModal()" id="acct-submit-btn">Simpan Rekening</button>
+      </div>
+      <div style="margin-top:12px;display:none" id="acct-delete-wrap">
+        <button class="btn btn-danger" style="width:100%;justify-content:center" onclick="deleteAccountFromModal()">🗑️ Hapus Rekening Ini</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- BUDGET MODAL -->
 <div class="sheet-overlay" id="budget-modal">
   <div class="sheet">
     <div class="sheet-handle"></div>
     <div class="sheet-head">
-      <div class="sheet-title">Tambah Anggaran</div>
+      <div class="sheet-title" id="budget-modal-title">Tambah Anggaran</div>
       <button class="sheet-close" onclick="closeSheet('budget-modal')">✕</button>
     </div>
     <div class="sheet-body">
+      <div class="field">
+        <label>Nama Anggaran <span style="color:var(--text3);font-weight:400">(opsional)</span></label>
+        <input type="text" id="budget-name" placeholder="mis. Makan Bulan Ini, Liburan Bali..."/>
+      </div>
       <div class="field">
         <label>Kategori</label>
         <div class="pick-grid" id="budget-cat-picker"></div>
       </div>
       <div class="field">
         <label>Batas Anggaran (Rp)</label>
-        <input type="number" id="budget-limit" placeholder="0" min="0"/>
+        <input type="text" inputmode="numeric" class="money-input" id="budget-limit" placeholder="0" min="0"/>
       </div>
       <div class="sheet-actions">
         <button class="btn btn-ghost" onclick="closeSheet('budget-modal')">Batal</button>
-        <button class="btn btn-accent" onclick="submitBudgetModal()">Simpan Anggaran</button>
+        <button class="btn btn-accent" id="budget-submit-btn" onclick="submitBudgetModal()">Simpan Anggaran</button>
       </div>
     </div>
   </div>
@@ -149,7 +232,7 @@
       </div>
       <div class="field">
         <label>Jumlah (Rp)</label>
-        <input type="number" id="rec-amount" placeholder="0" min="0"/>
+        <input type="text" inputmode="numeric" class="money-input" id="rec-amount" placeholder="0" min="0"/>
       </div>
       <div class="field">
         <label>Kategori</label>
@@ -198,7 +281,7 @@
       </div>
       <div class="field">
         <label>Jumlah (Rp)</label>
-        <input type="number" id="debt-amount" placeholder="0" min="0"/>
+        <input type="text" inputmode="numeric" class="money-input" id="debt-amount" placeholder="0" min="0"/>
       </div>
       <div class="field">
         <label>Keterangan</label>
@@ -231,7 +314,7 @@
       </div>
       <div class="field">
         <label>Jumlah Pelunasan (Rp)</label>
-        <input type="number" id="settle-amount" placeholder="Kosongkan = lunas penuh" min="0"/>
+        <input type="text" inputmode="numeric" class="money-input" id="settle-amount" placeholder="Kosongkan = lunas penuh"/>
       </div>
       <div class="sheet-actions">
         <button class="btn btn-ghost" onclick="closeSheet('settle-modal')">Batal</button>
@@ -253,6 +336,48 @@
         <button class="btn btn-ghost" onclick="closeSheet('confirm-modal')" id="confirm-cancel-btn">Batal</button>
         <button class="btn btn-danger" onclick="runConfirmAction()" id="confirm-ok-btn">Ya, hapus</button>
       </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- INPUT MODAL -->
+<div class="sheet-overlay" id="input-modal">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head">
+      <div class="sheet-title" id="input-modal-title">Input</div>
+      <button class="sheet-close" onclick="closeSheet('input-modal')">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div class="field">
+        <label id="input-modal-label">Label</label>
+        <input type="text" id="input-modal-field" placeholder=""/>
+      </div>
+      <div class="field" id="input-modal-field2-wrap" style="display:none">
+        <label id="input-modal-label2">Label 2</label>
+        <input type="password" id="input-modal-field2" placeholder=""/>
+      </div>
+      <div id="input-modal-desc" class="text-muted text-sm" style="margin-bottom:12px"></div>
+      <div class="sheet-actions">
+        <button class="btn btn-ghost" onclick="closeSheet('input-modal')">Batal</button>
+        <button class="btn btn-accent" id="input-modal-submit" onclick="window._inputModalSubmit && window._inputModalSubmit()">OK</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- CURRENCY MODAL -->
+<div class="sheet-overlay" id="currency-modal">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head">
+      <div class="sheet-title">Pilih Mata Uang</div>
+      <button class="sheet-close" onclick="closeSheet('currency-modal')">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div id="currency-list"></div>
     </div>
   </div>
 </div>

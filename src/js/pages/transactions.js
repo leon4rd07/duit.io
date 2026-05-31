@@ -2,10 +2,12 @@
 import { state }             from '../lib/store.js'
 import { showToast }         from '../lib/toast.js'
 import { navigate }          from '../lib/router.js'
-import { fmt, fmtShort, fmtDate, monthKey, monthLabel } from '../lib/utils.js'
+import { fmt, fmtShort, fmtDate, monthKey, monthLabel, toLocalDateString } from '../lib/utils.js'
 import { CATEGORIES, getCatGroups, getCatObj } from '../lib/categories.js'
 import { AVATAR_COLORS }     from '../lib/config.js'
 import * as DB                from '../lib/supabase.js'
+
+function isBalHidden() { return localStorage.getItem('hide_total_balance')==='1' }
 
 
 let txFilter = 'Semua'
@@ -16,7 +18,7 @@ let calSelectedDate = null
 // ===== TRANSACTIONS =====
 
 function renderTransactions(area, actions) {
-  actions.innerHTML = `<button class="btn btn-accent btn-sm" onclick="openAddTransaction()">+ Transaksi</button>`;
+  actions.innerHTML = `<button class="btn btn-accent btn-sm" onclick="addTxFromFilter('${txFilter}')">+ Transaksi</button>`;
   const cats = ['Semua','Pemasukan','Pengeluaran','Transfer'];
   const filtered = txFilter==='Semua' ? state.transactions :
     txFilter==='Pemasukan' ? state.transactions.filter(t=>t.type==='income') :
@@ -56,7 +58,7 @@ function buildCalendarHtml(filtered) {
   const y = calMonth.getFullYear(), m = calMonth.getMonth();
   const firstDay = new Date(y, m, 1).getDay();
   const daysInMonth = new Date(y, m+1, 0).getDate();
-  const today = new Date().toISOString().split('T')[0];
+  const today = toLocalDateString(new Date());
   const mk = `${y}-${String(m+1).padStart(2,'0')}`;
 
   // Build day → transactions map
@@ -94,8 +96,13 @@ function buildCalendarHtml(filtered) {
     const selDay = calSelectedDate.split('-')[2];
     const selTx = dayMap[selDay] || [];
     detailHtml = `<div class="cal-detail">
-      <div class="cal-detail-header">${fmtDate(calSelectedDate)} — ${selTx.length} transaksi</div>
-      ${selTx.length ? selTx.map(t=>txItemHtml(t)).join('') : '<div class="text-muted text-sm" style="padding:8px 0">Tidak ada transaksi</div>'}
+      <div class="cal-detail-header" style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+        <span>${fmtDate(calSelectedDate)} — ${selTx.length} transaksi</span>
+        <button class="btn btn-accent btn-sm" onclick="addTxOnDate('${calSelectedDate}')">
+          + Tambah Transaksi
+        </button>
+      </div>
+      ${selTx.length ? selTx.map(t=>txItemHtml(t)).join('') : '<div class="text-muted text-sm" style="padding:8px 0">Belum ada transaksi pada tanggal ini</div>'}
     </div>`;
   }
 
@@ -131,10 +138,35 @@ function changeCalMonth(delta) {
 }
 function selectCalDay(date) {
   calSelectedDate = calSelectedDate === date ? null : date;
+  // Store for tx modal default
+  if (calSelectedDate) {
+    sessionStorage.setItem('cal_selected_date', calSelectedDate);
+  } else {
+    sessionStorage.removeItem('cal_selected_date');
+  }
   navigate('transactions');
 }
 
 export { renderTransactions, setTxFilter, setTxView, changeCalMonth, selectCalDay }
+
+function addTxOnDate(date) {
+  sessionStorage.setItem('cal_selected_date', date);
+  if (window.openAddTransaction) window.openAddTransaction();
+}
+window.addTxOnDate = addTxOnDate;
+
+function addTxFromFilter(filter) {
+  // Map filter to tx type
+  const typeMap = {
+    'Pemasukan': 'income',
+    'Pengeluaran': 'expense',
+    'Transfer': 'transfer',
+  };
+  const type = typeMap[filter];
+  if (type) sessionStorage.setItem('preset_tx_type', type);
+  if (window.openAddTransaction) window.openAddTransaction();
+}
+window.addTxFromFilter = addTxFromFilter;
 
 window.setTxFilter = setTxFilter
 window.setTxView = setTxView

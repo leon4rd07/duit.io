@@ -2,7 +2,7 @@
 import { state }             from '../lib/store.js'
 import { showToast }         from '../lib/toast.js'
 import { navigate }          from '../lib/router.js'
-import { fmt, fmtShort, fmtDate, monthKey, monthLabel } from '../lib/utils.js'
+import { fmt, fmtShort, fmtDate, monthKey, monthLabel, toLocalDateString } from '../lib/utils.js'
 import { CATEGORIES, getCatGroups, getCatObj } from '../lib/categories.js'
 import { AVATAR_COLORS }     from '../lib/config.js'
 import * as DB                from '../lib/supabase.js'
@@ -105,6 +105,7 @@ function renderBills(area, actions) {
 }
 
 function openManualBill(typeId) {
+  const bt = BILL_TYPES.find(b => b.id === typeId);
   if (!bt) return;
   const form = document.getElementById('manual-bill-form');
   form.innerHTML = `
@@ -130,7 +131,7 @@ function openManualBill(typeId) {
         </div>
         <div class="field">
           <label>Tanggal Bayar</label>
-          <input type="date" id="mb-date" value="${new Date().toISOString().split('T')[0]}"/>
+          <input type="date" id="mb-date" value="${toLocalDateString(new Date())}"/>
         </div>
       </div>
       <div class="field">
@@ -146,6 +147,8 @@ function openManualBill(typeId) {
 }
 
 async function saveManualBill(typeId) {
+  const bt = BILL_TYPES.find(b => b.id === typeId);
+  if (!bt) { showToast('Tipe tagihan tidak ditemukan', 'error'); return; }
   const amount = parseFloat(document.getElementById('mb-amount').value);
   if (!amount) { showToast('Masukkan jumlah','error'); return; }
   const period = document.getElementById('mb-period').value;

@@ -2,17 +2,21 @@
 import { state }        from '../lib/store.js'
 import { showToast }    from '../lib/toast.js'
 import { navigate }     from '../lib/router.js'
-import { fmt, fmtShort } from '../lib/utils.js'
+import { fmt, fmtShort, toLocalDateString } from '../lib/utils.js'
+import { BANK_ICONS } from '../lib/config.js'
 import * as DB          from '../lib/supabase.js'
 
-// ── Persistent prefs (localStorage) ──────────────────────────────────
-const PREFS_KEY = 'acct_prefs_v1'
-const ORDER_KEY = 'acct_order_v1'
+// ── Persistent prefs ─────────────────────────────────────────────────
+const PREFS_KEY    = 'acct_prefs_v1'
+const ORDER_KEY    = 'acct_order_v1'
+const GRP_ORDER_KEY = 'acct_group_order_v1'
 
 const getPrefs = () => { try { return JSON.parse(localStorage.getItem(PREFS_KEY)||'{}') } catch { return {} } }
 const savePrefs = p => localStorage.setItem(PREFS_KEY, JSON.stringify(p))
 const getOrder = () => { try { return JSON.parse(localStorage.getItem(ORDER_KEY)||'[]') } catch { return [] } }
 const saveOrder = o => localStorage.setItem(ORDER_KEY, JSON.stringify(o))
+const getGroupOrder = () => { try { return JSON.parse(localStorage.getItem(GRP_ORDER_KEY)||'[]') } catch { return [] } }
+const saveGroupOrder = o => localStorage.setItem(GRP_ORDER_KEY, JSON.stringify(o))
 
 function getSortedAccounts() {
   const order = getOrder()
@@ -27,66 +31,82 @@ function getSortedAccounts() {
   })
 }
 
+function getSortedGroups(allCats) {
+  const savedOrder = getGroupOrder()
+  if (!savedOrder.length) return allCats
+  const sorted = [...savedOrder.filter(c => allCats.includes(c))]
+  allCats.forEach(c => { if (!sorted.includes(c)) sorted.push(c) })
+  return sorted
+}
+
 let _dragId = null
+let _dragGroup = null
 
 function renderAccounts(area, actions) {
   const prefs = getPrefs()
+  const hideTotal = localStorage.getItem('hide_total_balance') === '1'
+
   actions.innerHTML = `<button class="btn btn-accent btn-sm" onclick="window.openAddAccount && window.openAddAccount()">+ Rekening</button>`
 
   const sorted = getSortedAccounts()
   const total = sorted.reduce((s,a) => s + Number(a.balance), 0)
-  const hideTotalBalance = prefs.hideTotal
 
   // Group by category
-  const catOrder = []
   const catGroups = {}
   sorted.forEach(a => {
     const cat = a.category || 'Lainnya'
-    if (!catGroups[cat]) { catGroups[cat] = []; catOrder.push(cat) }
+    if (!catGroups[cat]) catGroups[cat] = []
     catGroups[cat].push(a)
   })
 
+  const catOrder = getSortedGroups(Object.keys(catGroups))
+
   area.innerHTML = `
-    <!-- Total hero with hide toggle -->
     <div class="card mb-16" style="background:linear-gradient(135deg,var(--bg3),var(--bg2));position:relative">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div>
           <div class="stat-label">Total Saldo</div>
           <div style="font-size:30px;font-weight:800;color:var(--accent);margin:4px 0">
-            ${hideTotalBalance ? '••••••••' : fmt(total)}
+            ${hideTotal ? '••••••••' : fmt(total)}
           </div>
         </div>
-        <button class="btn-icon" onclick="toggleHideTotal()" title="Sembunyikan saldo">
-          ${hideTotalBalance ? '👁‍🗨' : '👁'}
+        <button class="btn-icon" onclick="toggleHideTotal()" title="${hideTotal?'Tampilkan':'Sembunyikan'} semua saldo">
+          ${hideTotal ? '👁‍🗨' : '👁'}
         </button>
       </div>
       <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px">
         ${catOrder.map(cat => {
           const catTotal = catGroups[cat].reduce((s,a) => s+Number(a.balance), 0)
-          return `<div style="font-size:12px;color:var(--text2)">📂 ${cat}: <span style="font-weight:600;color:var(--text)">${hideTotalBalance ? '•••' : fmtShort(catTotal)}</span></div>`
+          return `<div style="font-size:12px;color:var(--text2)">📂 ${cat}: <span style="font-weight:600;color:var(--text)">${hideTotal ? '•••' : fmtShort(catTotal)}</span></div>`
         }).join('')}
       </div>
     </div>
 
-    <!-- Groups with collapse + drop zone -->
     ${catOrder.map(cat => {
       const accs = catGroups[cat]
       const collapsed = prefs[`collapse_${cat}`]
       const catTotal = accs.reduce((s,a) => s+Number(a.balance), 0)
       const safeId = cat.replace(/\s+/g,'_')
       return `
-        <div class="acct-group" id="grp-${safeId}">
+        <div class="acct-group"
+          id="grp-${safeId}"
+          draggable="true"
+          ondragstart="grpDragStart(event,'${cat}')"
+          ondragend="grpDragEnd(event)"
+          ondragover="grpDragOver(event,'${cat}')"
+          ondrop="grpDrop(event,'${cat}')">
           <div class="acct-group-header" onclick="toggleAcctGroup('${cat}')">
-            <div style="display:flex;align-items:center;gap:8px">
+            <div style="display:flex;align-items:center;gap:8px;flex:1">
+              <span class="grp-drag-handle" title="Drag untuk atur urutan" onclick="event.stopPropagation()">⠿</span>
               <span style="font-size:15px;font-weight:700">${cat}</span>
-              <span style="font-size:12px;color:var(--text2)">${hideTotalBalance ? '•••' : fmtShort(catTotal)}</span>
+              <span style="font-size:12px;color:var(--text2)">${hideTotal ? '•••' : fmtShort(catTotal)}</span>
               <span style="font-size:11px;color:var(--text3)">(${accs.length})</span>
             </div>
-            <span style="font-size:18px;color:var(--text3);transition:transform .2s;display:inline-block;transform:${collapsed?'rotate(-90deg)':'rotate(0)'}">▾</span>
+            <span style="font-size:18px;color:var(--text3);display:inline-block;transform:${collapsed?'rotate(-90deg)':'rotate(0)'}">▾</span>
           </div>
           <div class="acct-group-body" style="${collapsed?'display:none':''}">
             <div class="grid-2 mb-8" ondragover="event.preventDefault()" ondrop="acctDropOnGroup(event,'${cat}')">
-              ${accs.map(a => renderAccountCard(a, prefs)).join('')}
+              ${accs.map(a => renderAccountCard(a, prefs, hideTotal)).join('')}
             </div>
           </div>
         </div>`
@@ -96,11 +116,11 @@ function renderAccounts(area, actions) {
   `
 }
 
-function renderAccountCard(a, prefs) {
+function renderAccountCard(a, prefs, hideTotal) {
   const txCount = state.transactions.filter(t => t.account_id===a.id || t.to_account_id===a.id).length
   const accColor = a.color || 'var(--accent)'
   const note = prefs[`note_${a.id}`] || ''
-  const hideBalance = prefs[`hide_bal_${a.id}`]
+  const hideThis = prefs[`hide_bal_${a.id}`] || hideTotal
 
   return `<div class="account-card acct-draggable"
     data-id="${a.id}"
@@ -112,16 +132,16 @@ function renderAccountCard(a, prefs) {
     ondrop="acctDrop(event,'${a.id}')">
 
     <div style="position:absolute;top:8px;right:8px;display:flex;gap:4px;z-index:2">
-      <button class="acct-icon-btn" onclick="event.stopPropagation();toggleHideBalance('${a.id}')" title="${hideBalance?'Tampilkan':'Sembunyikan'} saldo">
-        ${hideBalance ? '👁‍🗨' : '👁'}
+      <button class="acct-icon-btn" onclick="event.stopPropagation();toggleHideBalance('${a.id}')" title="${hideThis?'Tampilkan':'Sembunyikan'} saldo">
+        ${hideThis ? '👁‍🗨' : '👁'}
       </button>
     </div>
 
-    <div style="cursor:pointer" onclick="window.openEditAccount && window.openEditAccount('${a.id}')">
-      <div class="account-bank">${a.icon||'🏦'} ${a.bank}</div>
+    <div style="cursor:pointer" onclick="window.openAccountDetail && window.openAccountDetail('${a.id}')">
+      <div class="account-bank">${a.icon || BANK_ICONS[a.bank] || '🏦'} ${a.bank}</div>
       <div class="account-name">${a.name}</div>
       <div class="account-balance" style="color:${accColor}">
-        ${hideBalance ? '••••••' : fmt(a.balance)}
+        ${hideThis ? '••••••' : fmt(a.balance)}
       </div>
       <div style="margin-top:6px;display:flex;gap:5px;flex-wrap:wrap">
         ${a.acct_type ? `<span style="font-size:10px;font-weight:600;background:var(--bg4);color:var(--text3);padding:2px 6px;border-radius:6px">${a.acct_type}</span>` : ''}
@@ -130,21 +150,15 @@ function renderAccountCard(a, prefs) {
     </div>
 
     <div class="acct-note-wrap" onclick="event.stopPropagation()">
-      <textarea
-        class="acct-note-input"
-        placeholder="Tambah catatan..."
-        rows="2"
-        oninput="saveAcctNote('${a.id}',this.value)"
-      >${note}</textarea>
+      <textarea class="acct-note-input" placeholder="Tambah catatan..." rows="2" oninput="saveAcctNote('${a.id}',this.value)">${note}</textarea>
     </div>
   </div>`
 }
 
 // ── Toggles ───────────────────────────────────────────────────────────
 function toggleHideTotal() {
-  const prefs = getPrefs()
-  prefs.hideTotal = !prefs.hideTotal
-  savePrefs(prefs)
+  const cur = localStorage.getItem('hide_total_balance') === '1'
+  localStorage.setItem('hide_total_balance', cur ? '0' : '1')
   navigate('accounts')
 }
 
@@ -168,37 +182,34 @@ function saveAcctNote(id, value) {
   savePrefs(prefs)
 }
 
-// ── Drag & drop ───────────────────────────────────────────────────────
+// ── Drag & drop cards ─────────────────────────────────────────────────
 function acctDragStart(e, id) {
+  e.stopPropagation()
   _dragId = id
+  _dragGroup = null
   e.currentTarget.classList.add('dragging')
   e.dataTransfer.effectAllowed = 'move'
-  e.dataTransfer.setData('text/plain', id)
 }
-
 function acctDragEnd(e) {
   e.currentTarget.classList.remove('dragging')
   document.querySelectorAll('.acct-draggable').forEach(c => c.classList.remove('drag-over'))
   _dragId = null
 }
-
 function acctDragOver(e, id) {
+  if (!_dragId) return
   e.preventDefault()
+  e.stopPropagation()
   if (id === _dragId) return
   document.querySelectorAll('.acct-draggable').forEach(c => c.classList.remove('drag-over'))
   e.currentTarget.classList.add('drag-over')
 }
-
 function acctDrop(e, targetId) {
   e.preventDefault()
   e.stopPropagation()
   if (!_dragId || _dragId === targetId) return
-
-  // Reorder within same group
   const sorted = getSortedAccounts()
   const ids = sorted.map(a => a.id)
-  const fromI = ids.indexOf(_dragId)
-  const toI = ids.indexOf(targetId)
+  const fromI = ids.indexOf(_dragId), toI = ids.indexOf(targetId)
   if (fromI === -1 || toI === -1) return
   ids.splice(fromI, 1)
   ids.splice(toI, 0, _dragId)
@@ -206,20 +217,55 @@ function acctDrop(e, targetId) {
   showToast('Urutan disimpan')
   navigate('accounts')
 }
-
 async function acctDropOnGroup(e, category) {
   e.preventDefault()
   if (!_dragId) return
   const acct = state.accounts.find(a => a.id === _dragId)
   if (!acct || acct.category === category) return
-  // Move account to new category
   try {
     await DB.updateAccount(_dragId, { category })
     showToast(`Dipindah ke ${category}`)
     navigate('accounts')
-  } catch(err) {
-    showToast('Gagal memindah: ' + err.message, 'error')
-  }
+  } catch(err) { showToast('Gagal memindah: ' + err.message, 'error') }
+}
+
+// ── Drag & drop groups ────────────────────────────────────────────────
+function grpDragStart(e, cat) {
+  // Only allow drag if started from header (not from card)
+  if (e.target.closest('.account-card')) return
+  _dragGroup = cat
+  _dragId = null
+  e.currentTarget.classList.add('grp-dragging')
+  e.dataTransfer.effectAllowed = 'move'
+}
+function grpDragEnd(e) {
+  e.currentTarget.classList.remove('grp-dragging')
+  document.querySelectorAll('.acct-group').forEach(g => g.classList.remove('grp-drag-over'))
+  _dragGroup = null
+}
+function grpDragOver(e, cat) {
+  if (!_dragGroup) return
+  e.preventDefault()
+  if (cat === _dragGroup) return
+  document.querySelectorAll('.acct-group').forEach(g => g.classList.remove('grp-drag-over'))
+  e.currentTarget.classList.add('grp-drag-over')
+}
+function grpDrop(e, targetCat) {
+  e.preventDefault()
+  e.stopPropagation()
+  if (!_dragGroup || _dragGroup === targetCat) return
+
+  const catGroups = {}
+  state.accounts.forEach(a => { catGroups[a.category || 'Lainnya'] = true })
+  const allCats = Object.keys(catGroups)
+  const order = getSortedGroups(allCats)
+  const fromI = order.indexOf(_dragGroup), toI = order.indexOf(targetCat)
+  if (fromI === -1 || toI === -1) return
+  order.splice(fromI, 1)
+  order.splice(toI, 0, _dragGroup)
+  saveGroupOrder(order)
+  showToast('Urutan grup disimpan')
+  navigate('accounts')
 }
 
 export { renderAccounts }
@@ -233,3 +279,7 @@ window.acctDragEnd       = acctDragEnd
 window.acctDragOver      = acctDragOver
 window.acctDrop          = acctDrop
 window.acctDropOnGroup   = acctDropOnGroup
+window.grpDragStart      = grpDragStart
+window.grpDragEnd        = grpDragEnd
+window.grpDragOver       = grpDragOver
+window.grpDrop           = grpDrop

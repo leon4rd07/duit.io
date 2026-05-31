@@ -16,6 +16,7 @@ import { initModals }      from './ui/modals.js'
 // Pages
 import { renderDashboard }    from './pages/dashboard.js'
 import { renderAccounts }     from './pages/accounts.js'
+import { renderAccountDetail } from './pages/accountDetail.js'
 import { renderTransactions } from './pages/transactions.js'
 import { renderTransfer }     from './pages/transfer.js'
 import { renderBudget }       from './pages/budget.js'
@@ -28,10 +29,12 @@ import { renderAdvisor }      from './pages/advisor.js'
 import { renderCategoryManager } from './pages/categoryPage.js'
 import { renderNotifSettings,initNotifScheduler } from './pages/notifications.js'
 import { renderReports }      from './pages/reports.js'
+import { renderSettings }     from './pages/settings.js'
 
 // ── Register all pages ─────────────────────────────────────────────────
 registerPage('dashboard',    renderDashboard)
 registerPage('accounts',     renderAccounts)
+registerPage('accountDetail', renderAccountDetail)
 registerPage('transactions', renderTransactions)
 registerPage('transfer',     renderTransfer)
 registerPage('budget',       renderBudget)
@@ -44,6 +47,7 @@ registerPage('advisor',      renderAdvisor)
 registerPage('categories',   renderCategoryManager)
 registerPage('notifSettings',renderNotifSettings)
 registerPage('reports',      renderReports)
+registerPage('settings',     renderSettings)
 
 // Expose navigate globally (used in inline onclick handlers)
 window.navigate = navigate
@@ -142,6 +146,7 @@ function renderAuthScreen(container) {
         <input class="form-input" type="text" id="auth-name" placeholder="Nama Anda"/>
       </div>
       <button class="btn-primary" id="auth-btn" onclick="window._doAuth()">Masuk</button>
+      <div style="text-align:center;margin-top:8px"><a href="#" class="forgot-password-link" onclick="event.preventDefault();window._forgotPassword()" style="font-size:12px;color:var(--accent);text-decoration:none">Lupa password?</a></div>
       <div class="auth-err" id="auth-err"></div>
     </div>`
 
@@ -196,6 +201,24 @@ function renderAuthScreen(container) {
       btn.disabled = false
       btn.textContent = _authMode === 'login' ? 'Masuk' : 'Daftar'
     }
+  }
+}
+
+
+window._forgotPassword = async () => {
+  const email = document.getElementById('auth-email').value.trim()
+  if (!email) { alert('Masukkan email kamu dulu di field Email'); return }
+  if (!confirm(`Kirim link reset password ke ${email}?`)) return
+  try {
+    const { data: { session } } = await getSession()
+    const supabase = state.supabase || db
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin,
+    })
+    if (error) throw error
+    alert('Email reset password sudah dikirim. Cek inbox kamu.')
+  } catch (e) {
+    alert('Gagal: ' + e.message)
   }
 }
 

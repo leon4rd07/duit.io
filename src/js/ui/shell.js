@@ -39,21 +39,11 @@ function getShellHTML() {
         <div class="nav-item" data-page="splitbill" onclick="navigate('splitbill')"><span class="nav-icon">🍽️</span> Split Bill</div>
         <div class="nav-item" data-page="bills" onclick="navigate('bills')"><span class="nav-icon">🧾</span> Tagihan</div>
         <div class="nav-item" data-page="advisor" onclick="navigate('advisor')"><span class="nav-icon">🤖</span> AI Advisor</div>
-        <div class="nav-item" data-page="categories" onclick="navigate('categories')"><span class="nav-icon">🏷️</span> Kategori</div>
-        <div class="nav-item" data-page="notifSettings" onclick="navigate('notifSettings')"><span class="nav-icon">🔔</span> Notifikasi</div>
         <div class="nav-item" data-page="reports" onclick="navigate('reports')"><span class="nav-icon">📈</span> Laporan</div>
+        <div class="nav-item" data-page="settings" onclick="navigate('settings')"><span class="nav-icon">⚙️</span> Pengaturan</div>
       </div>
     </nav>
-    <div class="sidebar-footer">
-      <div class="theme-toggle-btn" onclick="window.toggleTheme()">
-        <span>🎨 Tema</span>
-        <div class="theme-pill">
-          <div class="theme-pill-btn" id="theme-dark-btn">🌙</div>
-          <div class="theme-pill-btn" id="theme-light-btn">☀️</div>
-        </div>
-      </div>
-      <button class="logout-btn" onclick="window.logout()"><span>🚪</span> Keluar</button>
-    </div>
+<div class="sidebar-footer"></div>
   </aside>
 
   <main class="main">

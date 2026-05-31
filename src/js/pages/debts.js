@@ -49,12 +49,50 @@ function debtHtml(d, settled=false) {
     </div>
     <div class="debt-right">
       <div class="debt-amount" style="color:${d.direction==='lent'?'var(--green)':'var(--red)'}">${fmtShort(d.remaining)}</div>
-      ${!settled?`<button class="btn btn-sm btn-ghost" style="font-size:11px;margin-top:4px" onclick="settleDebt('${d.id}')">Lunas ✓</button>`:'<span class="badge badge-green">Lunas</span>'}
+      <div style="display:flex;gap:4px;margin-top:4px;justify-content:flex-end">
+        ${!settled?`<button class="btn btn-sm btn-ghost" style="font-size:11px" onclick="settleDebt('${d.id}')" title="Tandai lunas">✓</button>`:''}
+        <button class="btn btn-sm btn-ghost" style="font-size:11px" onclick="editDebt('${d.id}')" title="Edit">✏️</button>
+        <button class="btn btn-sm btn-ghost" style="font-size:11px;color:var(--red)" onclick="deleteDebt('${d.id}')" title="Hapus">🗑️</button>
+      </div>
     </div>
   </div>`;
 }
 
-// openAddDebt & settleDebt replaced by modal versions above
+async function deleteDebt(id) {
+  const d = state.debts.find(x => x.id === id);
+  if (!d) return;
+  window.showConfirm('🗑️', 'Hapus Hutang/Piutang', `Hapus catatan "${d.contact_name}"?`, 'Hapus', 'btn-danger', async () => {
+    try {
+      await state.supabase.from('debts').delete().eq('id', id);
+      state.debts = state.debts.filter(x => x.id !== id);
+      showToast('Dihapus ✓');
+      navigate('debts');
+    } catch (e) {
+      showToast('Gagal: ' + e.message, 'error');
+    }
+  });
+}
 
+function editDebt(id) {
+  const d = state.debts.find(x => x.id === id);
+  if (!d) return;
+  // Reuse the debt modal in edit mode
+  window._editingDebtId = id;
+  const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+  setVal('debt-contact', d.contact_name || '');
+  setVal('debt-amount', String(Math.round(Number(d.amount))).replace(/\B(?=(\d{3})+(?!\d))/g, '.'));
+  setVal('debt-note', d.note || '');
+  setVal('debt-due', d.due_date || '');
+  // Set direction
+  const btns = document.querySelectorAll('#debt-dir-toggle .type-btn');
+  btns.forEach(b => b.classList.remove('active-income','active-expense'));
+  if (d.direction === 'lent' && btns[0]) btns[0].classList.add('active-income');
+  if (d.direction === 'owe' && btns[1]) btns[1].classList.add('active-expense');
+  window._debtDirOverride = d.direction;
+  document.getElementById('debt-modal')?.classList.add('open');
+}
 
 export { renderDebts }
+
+window.deleteDebt = deleteDebt
+window.editDebt   = editDebt

@@ -97,6 +97,12 @@ INSTRUKSI:
 function renderAdvisor(area, actions) {
   actions.innerHTML = `<button class="btn btn-ghost btn-sm" onclick="clearAdvisorHistory()">🗑️ Bersihkan chat</button>`;
 
+  // Compute current month stats
+  const now = new Date();
+  const mk = monthKey(now);
+  const totalBalance = state.accounts.reduce((s,a) => s + Number(a.balance), 0);
+  const thisIncome   = state.transactions.filter(t=>t.type==='income'&&t.date?.startsWith(mk)).reduce((s,t)=>s+Number(t.amount),0);
+  const thisExpense  = state.transactions.filter(t=>t.type==='expense'&&t.date?.startsWith(mk)).reduce((s,t)=>s+Number(t.amount),0);
 
   const quickPrompts = [
     'Bagaimana kondisi keuanganku bulan ini?',

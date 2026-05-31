@@ -25,11 +25,15 @@ function renderBudget(area, actions) {
         const cls = pct>=100?'over':pct>=80?'warn':'ok';
         return `<div class="budget-item">
           <div class="budget-header">
-            <div class="budget-cat">${b.category}</div>
-            <div style="display:flex;align-items:center;gap:8px">
+            <div>
+              ${b.name ? `<div style="font-size:14px;font-weight:700;margin-bottom:2px">${b.name}</div>` : ''}
+              <div class="budget-cat" style="${b.name ? 'font-size:11px;color:var(--text2)' : ''}">${b.category}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px">
               <div class="budget-amounts">${fmtShort(spent)} / ${fmtShort(b.limit_amount)}</div>
               <span class="badge badge-${cls==='ok'?'green':cls==='warn'?'amber':'red'}">${pct.toFixed(0)}%</span>
-              <button class="btn btn-sm btn-danger" onclick="deleteBudget('${b.id}')">✕</button>
+              <button class="btn btn-sm btn-ghost" onclick="openEditBudget('${b.id}')" title="Edit">✏️</button>
+              <button class="btn btn-sm btn-ghost" style="color:var(--red)" onclick="confirmDeleteBudget('${b.id}')" title="Hapus">🗑️</button>
             </div>
           </div>
           <div class="progress-bar"><div class="progress-fill ${cls}" style="width:${pct}%"></div></div>
@@ -38,14 +42,23 @@ function renderBudget(area, actions) {
     </div>`;
 }
 
-// openAddBudget replaced by modal version above
+function confirmDeleteBudget(id) {
+  const b = state.budgets.find(x => x.id === id);
+  if (!b) return;
+  window.showConfirm('🗑️', 'Hapus Anggaran', `Hapus anggaran ${b.name || b.category}?`, 'Hapus', 'btn-danger', async () => {
+    await deleteBudget(id);
+  });
+}
 
 async function deleteBudget(id) {
   await state.supabase.from('budgets').delete().eq('id',id);
   state.budgets = state.budgets.filter(b=>b.id!==id);
-  showToast('Anggaran dihapus');
+  showToast('Anggaran dihapus ✓');
   navigate('budget');
 }
 
 
 export { renderBudget, deleteBudget }
+
+window.deleteBudget        = deleteBudget
+window.confirmDeleteBudget = confirmDeleteBudget

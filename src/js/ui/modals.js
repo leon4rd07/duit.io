@@ -1,8 +1,8 @@
 // src/js/ui/modals.js
+import { fmt, fmtShort, monthKey, toLocalDateString, attachMoneyFormatter, parseMoneyInput } from '../lib/utils.js'
 import { state }          from '../lib/store.js'
 import { showToast }      from '../lib/toast.js'
 import { navigate }       from '../lib/router.js'
-import { fmt, fmtShort, monthKey} from '../lib/utils.js'
 import { CATEGORIES, getCatGroups, DEFAULT_CATS, getAllCats, getCatObj } from '../lib/categories.js'
 import { BANKS, ACCT_TYPES, ACCT_COLORS, AVATAR_COLORS, BANK_ICONS} from '../lib/config.js'
 import * as DB from '../lib/supabase.js'
@@ -107,9 +107,11 @@ function selectAcctType(id) {
 }
 
 function renderCatPicker() {
+  const el = document.getElementById('acct-cat-picker');
   if (!el) return;
   const cats = getAcctCats();
   el.innerHTML = cats.map(c => {
+    const active = c === _selectedAcctCat;
     return `<div class="pill${active?' active':''}" onclick="selectAcctCat('${c}')">${c}</div>`;
   }).join('');
 }
@@ -137,6 +139,7 @@ function addCustomCategory() {
 }
 
 function renderEmojiGrid() {
+  const el = document.getElementById('acct-emoji-grid');
   if (!el) return;
   el.innerHTML = ALL_EMOJIS.map(e =>
     `<span onclick="selectEmoji('${e}')"
@@ -154,8 +157,10 @@ function selectEmoji(e) {
 function renderBankPicker(selectedBank) {
   _selectedBank = selectedBank || 'BCA';
   _customBankMode = !PRESET_BANKS.find(b=>b.name===_selectedBank && !b.name.includes('+'));
+  const el = document.getElementById('bank-picker');
   if (!el) return;
   el.innerHTML = PRESET_BANKS.map(b => {
+    const active = b.name === _selectedBank;
     const isLainnya = b.name.includes('+');
     return `<div class="pick-item${active?' selected':''}" onclick="selectBank('${b.name}')">
       <span class="pick-icon">${b.emoji}</span>${b.name}</div>`;
@@ -198,6 +203,7 @@ function updateCustomBankName() {
 }
 
 function renderColorPicker() {
+  const el = document.getElementById('acct-color-picker');
   if (!el) return;
   el.innerHTML = ACCT_COLORS.map(c =>
     `<div onclick="selectAcctColor('${c}')" style="width:28px;height:28px;border-radius:50%;background:${c};cursor:pointer;flex-shrink:0;transition:all .15s;
@@ -240,22 +246,31 @@ function initAcctModal() {
 }
 
 function openAddAccount() {
-  _editingAccountId = null;
-  _selectedBank     = 'BCA';
-  _selectedAcctColor= '#ff7c5c';
-  _selectedAcctCat  = 'Tabungan';
-  _selectedAcctType = 'Debit';
-  _selectedEmoji    = '🏦';
-  _customBankMode   = false;
-  _customBankName   = '';
-  document.getElementById('acct-modal-title').textContent = 'Tambah Rekening';
-  document.getElementById('acct-name').value = '';
-  document.getElementById('acct-balance').value = '';
-  document.getElementById('acct-submit-btn').textContent = 'Simpan Rekening';
-  document.getElementById('acct-delete-wrap').style.display = 'none';
-  document.getElementById('custom-bank-name').value = '';
-  openSheet('account-modal');
-  setTimeout(initAcctModal, 30);
+  try {
+    _editingAccountId = null;
+    _selectedBank     = 'BCA';
+    _selectedAcctColor= '#ff7c5c';
+    _selectedAcctCat  = 'Tabungan';
+    _selectedAcctType = 'Debit';
+    _selectedEmoji    = '🏦';
+    _customBankMode   = false;
+    _customBankName   = '';
+    const setVal = (id, val, prop='value') => {
+      const el = document.getElementById(id);
+      if (el) el[prop] = val;
+    };
+    setVal('acct-modal-title', 'Tambah Rekening', 'textContent');
+    setVal('acct-name', '');
+    setVal('acct-balance', '');
+    setVal('acct-submit-btn', 'Simpan Rekening', 'textContent');
+    const delWrap = document.getElementById('acct-delete-wrap');
+    if (delWrap) delWrap.style.display = 'none';
+    setVal('custom-bank-name', '');
+    openSheet('account-modal');
+    setTimeout(initAcctModal, 30);
+  } catch(err) {
+    console.error('openAddAccount error:', err);
+  }
 }
 
 function openEditAccount(id) {
@@ -280,6 +295,8 @@ function openEditAccount(id) {
 }
 
 async function submitAccountModal() {
+  const name = document.getElementById('acct-name')?.value.trim();
+  const balance = parseMoneyInput(document.getElementById('acct-balance')?.value) || 0;
   if (!name) { showToast('Masukkan nama rekening', 'error'); return; }
   const bankFinal = _customBankMode ? (_customBankName.trim() || 'Lainnya') : _selectedBank;
   if (!bankFinal) { showToast('Pilih atau ketik nama bank/dompet', 'error'); return; }
@@ -293,6 +310,7 @@ async function submitAccountModal() {
     acct_type: _selectedAcctType,
   };
   if (_editingAccountId) {
+    const a = state.accounts.find(x => x.id === _editingAccountId);
     const {error} = await state.supabase.from('accounts').update(payload).eq('id',_editingAccountId);
     if (error) { showToast(error.message,'error'); btn.disabled=false; btn.textContent='Simpan Perubahan'; return; }
     if (a) Object.assign(a, payload);
@@ -310,6 +328,7 @@ async function submitAccountModal() {
 
 function deleteAccountFromModal() {
   if (!_editingAccountId) return;
+  const a = state.accounts.find(x => x.id === _editingAccountId);
   showConfirm('🗑️','Hapus Rekening',`Hapus "${a?.name}"? Transaksi terkait tetap ada.`,'Ya, hapus','btn-danger', async ()=>{
     await state.supabase.from('accounts').delete().eq('id',_editingAccountId);
     state.accounts = state.accounts.filter(x=>x.id!==_editingAccountId);
@@ -321,18 +340,44 @@ function deleteAccountFromModal() {
 
 // ===== BUDGET MODAL =====
 let _selectedBudgetCat = '';
+let _editingBudgetId = null;
 
 function openAddBudget() {
   _selectedBudgetCat = '';
-  document.getElementById('budget-limit').value = '';
+  _editingBudgetId = null;
+  const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+  setVal('budget-limit', '');
+  setVal('budget-name', '');
+  const titleEl = document.getElementById('budget-modal-title');
+  if (titleEl) titleEl.textContent = 'Tambah Anggaran';
+  const btnEl = document.getElementById('budget-submit-btn');
+  if (btnEl) btnEl.textContent = 'Simpan Anggaran';
   renderBudgetCatPicker();
+  attachMoneyFormatter(document.getElementById('budget-limit'));
+  openSheet('budget-modal');
+}
+
+function openEditBudget(id) {
+  const b = state.budgets.find(x => x.id === id);
+  if (!b) return;
+  _editingBudgetId = id;
+  _selectedBudgetCat = b.category || '';
+  const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+  setVal('budget-name', b.name || '');
+  setVal('budget-limit', String(Math.round(Number(b.limit_amount))).replace(/\B(?=(\d{3})+(?!\d))/g, '.'));
+  const titleEl = document.getElementById('budget-modal-title');
+  if (titleEl) titleEl.textContent = 'Edit Anggaran';
+  const btnEl = document.getElementById('budget-submit-btn');
+  if (btnEl) btnEl.textContent = 'Simpan Perubahan';
+  renderBudgetCatPicker();
+  attachMoneyFormatter(document.getElementById('budget-limit'));
   openSheet('budget-modal');
 }
 
 function renderBudgetCatPicker() {
   const groups = getCatGroups('expense');
   document.getElementById('budget-cat-picker').innerHTML = Object.entries(groups).map(([grp,cats])=>`
-    <div style="width:100%;font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.5px;text-transform:uppercase;padding:6px 2px 4px;margin-top:4px">${grp}</div>
+    <div class="pick-group-label">${grp}</div>
     ${cats.map(c=>{
       const full = c.icon+' '+c.name;
       const sel = full===_selectedBudgetCat;
@@ -349,17 +394,49 @@ function selectBudgetCat(full) {
 
 async function submitBudgetModal() {
   if (!_selectedBudgetCat) { showToast('Pilih kategori dulu', 'error'); return; }
-  const limit = parseFloat(document.getElementById('budget-limit').value);
+  const limit = parseMoneyInput(document.getElementById('budget-limit').value);
   if (!limit || limit <= 0) { showToast('Masukkan jumlah anggaran', 'error'); return; }
+  const name = document.getElementById('budget-name')?.value.trim() || null;
   const mk = monthKey(new Date());
-  const { data, error } = await state.supabase.from('budgets')
-    .upsert([{ user_id: state.currentUser.id, category: _selectedBudgetCat, limit_amount: limit, month: mk }], { onConflict: 'user_id,category,month' })
-    .select().single();
+
+  // Helper: insert/update with fallback if 'name' column doesn't exist
+  async function trySave(includeName) {
+    if (_editingBudgetId) {
+      const payload = { category: _selectedBudgetCat, limit_amount: limit };
+      if (includeName) payload.name = name;
+      return await state.supabase.from('budgets')
+        .update(payload).eq('id', _editingBudgetId).select().single();
+    } else {
+      const payload = { user_id: state.currentUser.id, category: _selectedBudgetCat, limit_amount: limit, month: mk };
+      if (includeName) payload.name = name;
+      return await state.supabase.from('budgets')
+        .upsert([payload], { onConflict: 'user_id,category,month' })
+        .select().single();
+    }
+  }
+
+  let { data, error } = await trySave(true);
+
+  // If column 'name' doesn't exist in DB, retry without it
+  if (error && /column.*name/i.test(error.message)) {
+    if (name) {
+      showToast('Catatan: nama anggaran perlu kolom DB. Hubungi admin.', 'info');
+    }
+    ({ data, error } = await trySave(false));
+  }
+
   if (error) { showToast(error.message, 'error'); return; }
-  const idx = state.budgets.findIndex(b => b.id === data.id);
-  if (idx >= 0) state.budgets[idx] = data; else state.budgets.push(data);
+
+  if (_editingBudgetId) {
+    const b = state.budgets.find(x => x.id === _editingBudgetId);
+    if (b) { b.category = _selectedBudgetCat; b.limit_amount = limit; if (name) b.name = name; }
+    showToast('Anggaran diperbarui ✓');
+  } else {
+    const idx = state.budgets.findIndex(b => b.id === data.id);
+    if (idx >= 0) state.budgets[idx] = data; else state.budgets.push(data);
+    showToast('Anggaran disimpan!');
+  }
   closeSheet('budget-modal');
-  showToast('Anggaran disimpan!');
   navigate('budget');
 }
 
@@ -367,30 +444,50 @@ async function submitBudgetModal() {
 let _recType = 'expense';
 
 function openAddRecurring() {
-  _recType = 'expense';
-  document.getElementById('rec-name').value = '';
-  document.getElementById('rec-amount').value = '';
-  // populate selects
-  document.getElementById('rec-category').innerHTML = cats.map(c => `<option value="${c}">${c}</option>`).join('');
-  document.getElementById('rec-account').innerHTML = state.accounts.map(a => `<option value="${a.id}">${a.name}</option>`).join('') || '<option>Tambah rekening dulu</option>';
-  // set type toggle
-  const btns = document.querySelectorAll('#rec-type-toggle .type-btn');
-  btns.forEach((b,i) => { b.classList.remove('active-expense','active-income'); });
-  btns[0].classList.add('active-expense');
-  openSheet('recurring-modal');
+  try {
+    _recType = 'expense';
+    const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+    setVal('rec-name', '');
+    setVal('rec-amount', '');
+    // Populate categories grouped
+    const groups = getCatGroups('expense');
+    const catEl = document.getElementById('rec-category');
+    if (catEl) {
+      catEl.innerHTML = Object.entries(groups).map(([grp,cats])=>
+        `<optgroup label="${grp}">`+cats.map(c=>`<option value="${c.icon+' '+c.name}">${c.icon+' '+c.name}</option>`).join('')+`</optgroup>`
+      ).join('');
+    }
+    const accEl = document.getElementById('rec-account');
+    if (accEl) {
+      accEl.innerHTML = state.accounts.map(a => `<option value="${a.id}">${a.icon || ''} ${a.name}</option>`).join('') || '<option>Tambah rekening dulu</option>';
+    }
+    const btns = document.querySelectorAll('#rec-type-toggle .type-btn');
+    btns.forEach(b => b.classList.remove('active-expense','active-income'));
+    if (btns[0]) btns[0].classList.add('active-expense');
+    openSheet('recurring-modal');
+  } catch(err) {
+    console.error('openAddRecurring error:', err);
+    showToast('Gagal membuka modal: ' + err.message, 'error');
+  }
 }
 
 function setRecType(type) {
   _recType = type;
+  const btns = document.querySelectorAll('#rec-type-toggle .type-btn');
   btns.forEach(b => b.classList.remove('active-expense','active-income'));
-  btns[type==='expense'?0:1].classList.add('active-'+type);
-  document.getElementById('rec-category').innerHTML = Object.entries(groups).map(([grp,cats])=>
-    `<optgroup label="${grp}">`+cats.map(c=>`<option value="${c.icon+' '+c.name}">${c.icon+' '+c.name}</option>`).join('')+`</optgroup>`
-  ).join('');
+  if (btns[type==='expense'?0:1]) btns[type==='expense'?0:1].classList.add('active-'+type);
+  const groups = getCatGroups(type);
+  const catEl = document.getElementById('rec-category');
+  if (catEl) {
+    catEl.innerHTML = Object.entries(groups).map(([grp,cats])=>
+      `<optgroup label="${grp}">`+cats.map(c=>`<option value="${c.icon+' '+c.name}">${c.icon+' '+c.name}</option>`).join('')+`</optgroup>`
+    ).join('');
+  }
 }
 
 async function submitRecurringModal() {
-  const amount = parseFloat(document.getElementById('rec-amount').value);
+  const name = document.getElementById('rec-name')?.value.trim();
+  const amount = parseMoneyInput(document.getElementById('rec-amount').value);
   const category = document.getElementById('rec-category').value;
   const account_id = document.getElementById('rec-account').value;
   const frequency = document.getElementById('rec-freq').value;
@@ -421,27 +518,37 @@ function deleteRecurring(id) {
 let _debtDir = 'lent';
 
 function openAddDebt() {
-  _debtDir = 'lent';
-  document.getElementById('debt-contact').value = '';
-  document.getElementById('debt-amount').value = '';
-  document.getElementById('debt-note').value = '';
-  document.getElementById('debt-due').value = '';
-  btns.forEach(b => b.classList.remove('active-income','active-expense'));
-  btns[0].classList.add('active-income');
-  openSheet('debt-modal');
+  try {
+    _debtDir = 'lent';
+    const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+    setVal('debt-contact', '');
+    setVal('debt-amount', '');
+    setVal('debt-note', '');
+    setVal('debt-due', '');
+    const btns = document.querySelectorAll('#debt-dir-toggle .type-btn');
+    btns.forEach(b => b.classList.remove('active-income','active-expense'));
+    if (btns[0]) btns[0].classList.add('active-income');
+    openSheet('debt-modal');
+  } catch(err) {
+    console.error('openAddDebt error:', err);
+    showToast('Gagal membuka modal: ' + err.message, 'error');
+  }
 }
 
 function setDebtDir(dir) {
   _debtDir = dir;
+  const btns = document.querySelectorAll('#debt-dir-toggle .type-btn');
   btns.forEach(b => b.classList.remove('active-income','active-expense'));
-  btns[dir==='lent'?0:1].classList.add(dir==='lent'?'active-income':'active-expense');
+  if (btns[dir==='lent'?0:1]) btns[dir==='lent'?0:1].classList.add(dir==='lent'?'active-income':'active-expense');
 }
 
 async function submitDebtModal() {
-  const note = document.getElementById('debt-note').value.trim();
-  const dueStr = document.getElementById('debt-due').value || null;
+  const name = document.getElementById('debt-contact')?.value.trim();
+  const amount = parseMoneyInput(document.getElementById('debt-amount')?.value);
+  const note = document.getElementById('debt-note')?.value.trim() || '';
+  const dueStr = document.getElementById('debt-due')?.value || null;
   if (!name) { showToast('Masukkan nama orang', 'error'); return; }
-  if (!amount) { showToast('Masukkan jumlah', 'error'); return; }
+  if (!amount || amount <= 0) { showToast('Masukkan jumlah', 'error'); return; }
   const { data, error } = await state.supabase.from('debts')
     .insert([{ user_id: state.currentUser.id, contact_name: name, direction: _debtDir, amount, remaining: amount, note, due_date: dueStr }])
     .select().single();
@@ -462,12 +569,14 @@ function settleDebt(id) {
   document.getElementById('settle-title').textContent = `Pelunasan — ${d.contact_name}`;
   document.getElementById('settle-remaining').textContent = fmt(d.remaining);
   document.getElementById('settle-amount').value = '';
+  attachMoneyFormatter(document.getElementById('settle-amount'));
   openSheet('settle-modal');
 }
 
 async function submitSettleModal() {
+  const d = state.debts.find(x => x.id === _settlingDebtId);
   if (!d) return;
-  const partial = parseFloat(document.getElementById('settle-amount').value);
+  const partial = parseMoneyInput(document.getElementById('settle-amount').value);
   const payAmount = partial || d.remaining;
   const newRemaining = Math.max(0, d.remaining - payAmount);
   const settled = newRemaining === 0;
@@ -623,333 +732,29 @@ function moveCatToGroup(catId, newGroup) {
   navigate('categories');
 }
 
-// ── GROUP MANAGER ──────────────────────────────────────────────────
-function openGroupManager() {
-  const type   = _catPageType;
-  const order  = getAllGroupsOrdered(type);
-  let existing = document.getElementById('cat-add-sheet');
-  if (existing) existing.remove();
-
-  const sheetEl = document.createElement('div');
-  sheetEl.id    = 'cat-add-sheet';
-  sheetEl.className = 'sheet-overlay open';
-  sheetEl.innerHTML = `
-    <div class="sheet" style="max-width:500px">
-      <div class="sheet-handle"></div>
-      <div class="sheet-head">
-        <div class="sheet-title">📂 Kelola Klasifikasi</div>
-        <button class="sheet-close" onclick="closeCatSheet()">✕</button>
-      </div>
-      <div class="sheet-body">
-        <div style="font-size:13px;color:var(--text2);margin-bottom:16px">
-          Tambah atau hapus grup klasifikasi. Grup bawaan (Needs/Wants/Savings) tidak bisa dihapus.
-        </div>
-        <div id="group-list-mgr" style="display:flex;flex-direction:column;gap:6px;margin-bottom:20px">
-          ${order.map((g,i) => {
-            const isBuiltin = ['Needs','Wants','Savings','Ungrouped','Pemasukan'].includes(g);
-            return `<div style="display:flex;align-items:center;gap:10px;padding:11px 14px;background:var(--bg3);border-radius:10px">
-              <div style="font-size:20px">📂</div>
-              <div style="flex:1;font-size:14px;font-weight:600">${g}</div>
-              ${!isBuiltin ? `<button class="btn btn-sm btn-danger" onclick="deleteGroup('${g}')">Hapus</button>` : `<span style="font-size:11px;color:var(--text3)">bawaan</span>`}
-            </div>`;
-          }).join('')}
-        </div>
-        <div class="field">
-          <label>Nama Grup Baru</label>
-          <input type="text" id="new-group-name" placeholder="mis. Hobi, Anak, Tabungan Khusus..."
-            onkeydown="if(event.key==='Enter')addNewGroup()"/>
-        </div>
-        <button class="btn btn-accent" style="width:100%;justify-content:center" onclick="addNewGroup()">+ Tambah Klasifikasi</button>
-      </div>
-    </div>`;
-  document.body.appendChild(sheetEl);
-  sheetEl.addEventListener('click', e => { if(e.target===sheetEl) closeCatSheet(); });
-}
-
-function openGroupEditor(groupName) {
-  let existing = document.getElementById('cat-add-sheet');
-  if (existing) existing.remove();
-
-  sheetEl.id    = 'cat-add-sheet';
-  sheetEl.className = 'sheet-overlay open';
-  sheetEl.innerHTML = `
-    <div class="sheet" style="max-width:400px">
-      <div class="sheet-handle"></div>
-      <div class="sheet-head">
-        <div class="sheet-title">✏️ Edit Klasifikasi</div>
-        <button class="sheet-close" onclick="closeCatSheet()">✕</button>
-      </div>
-      <div class="sheet-body">
-        <div class="field">
-          <label>Nama Klasifikasi</label>
-          <input type="text" id="edit-group-name" value="${groupName}" ${isBuiltin?'readonly style="opacity:0.5"':''}/>
-          ${isBuiltin?'<div style="font-size:11px;color:var(--text3);margin-top:4px">Nama klasifikasi bawaan tidak bisa diubah</div>':''}
-        </div>
-        <div class="sheet-actions">
-          <button class="btn btn-ghost" onclick="closeCatSheet()">Batal</button>
-          ${!isBuiltin?`<button class="btn btn-accent" onclick="renameGroup('${groupName}')">Simpan</button>`:''}
-        </div>
-        ${!isBuiltin?`<button class="btn btn-danger" style="width:100%;justify-content:center;margin-top:8px" onclick="deleteGroup('${groupName}')">🗑️ Hapus Klasifikasi Ini</button>`:''}
-      </div>
-    </div>`;
-  document.body.appendChild(sheetEl);
-  sheetEl.addEventListener('click', e => { if(e.target===sheetEl) closeCatSheet(); });
-}
-
-function addNewGroup() {
-  if (!name) { showToast('Masukkan nama grup','error'); return; }
-  if (order.includes(name)) { showToast('Grup sudah ada','error'); return; }
-  // Insert before Ungrouped
-  const uIdx = order.indexOf('Ungrouped');
-  if (uIdx >= 0) order.splice(uIdx, 0, name); else order.push(name);
-  saveGroupOrder(type, order);
-  showToast('Klasifikasi "'+name+'" ditambahkan!');
-  closeCatSheet();
-  navigate('categories');
-}
-
-function renameGroup(oldName) {
-  const newName = document.getElementById('edit-group-name')?.value.trim();
-  if (!newName || newName === oldName) { closeCatSheet(); return; }
-  if (idx >= 0) order[idx] = newName;
-  saveGroupOrder(type, order);
-  // Update all cats in this group
-  const custom = JSON.parse(localStorage.getItem('custom_cats_v2') || '[]');
-  custom.forEach(c => { if (c.group === oldName) c.group = newName; });
-  localStorage.setItem('custom_cats_v2', JSON.stringify(custom));
-  // Update overridden defaults too
-  // cats that are default overrides already in custom list — handled above
-  showToast('Diganti menjadi "'+newName+'"');
-  closeCatSheet();
-  navigate('categories');
-}
-
-function deleteGroup(groupName) {
-  if (cats.length > 0) {
-    // Move all cats in this group to Ungrouped
-    cats.forEach(c => {
-      if (isDefault) {
-        if (!hidden.includes(c.id)) hidden.push(c.id);
-        if (idx>=0) custom[idx].group='Ungrouped';
-        else custom.push({...isDefault, group:'Ungrouped'});
-      } else {
-        if (idx>=0) custom[idx].group='Ungrouped';
-      }
-    });
-    localStorage.setItem('custom_cats_v2', JSON.stringify(custom));
-    localStorage.setItem('hidden_cats', JSON.stringify(hidden));
-  }
-  saveGroupOrder(type, order.filter(g=>g!==groupName));
-  showToast('"'+groupName+'" dihapus, kategori dipindah ke Ungrouped');
-  closeCatSheet();
-  navigate('categories');
-}
-
-
-// ── Add / Edit sheet ─────────────────────────────────────────────────
-function openAddCatSheet() {
-  _editingCatId = null;
-  _newCatEmoji  = '📦';
-  _newCatColor  = '#ff7c5c';
-  _newCatType   = _catPageType;
-  _newCatGroup  = '';
-  buildCatSheet('Tambah Kategori', '', '', false);
-}
-function openEditCatSheet(id) {
-  const c = getAllCats().find(x=>x.id===id);
-  if (!c) return;
-  _editingCatId = id;
-  _newCatEmoji  = c.icon;
-  _newCatColor  = c.color;
-  _newCatType   = c.type;
-  _newCatGroup  = c.group;
-  buildCatSheet('Edit Kategori', c.name, c.group, true);
-}
-
-function buildCatSheet(title, nameVal, groupVal, isEdit) {
-  // Inject a temporary sheet into the page
-  let existing = document.getElementById('cat-add-sheet');
-  if (existing) existing.remove();
-
-  const allCats = getAllCats();
-
-  sheetEl.id = 'cat-add-sheet';
-  sheetEl.className = 'sheet-overlay open';
-  sheetEl.innerHTML = `
-    <div class="sheet" style="max-width:500px">
-      <div class="sheet-handle"></div>
-      <div class="sheet-head">
-        <div class="sheet-title">${title}</div>
-        <button class="sheet-close" onclick="closeCatSheet()">✕</button>
-      </div>
-      <div class="sheet-body">
-
-        <div class="field">
-          <label>Jenis</label>
-          <div style="display:flex;gap:6px">
-            <div class="pill ${_newCatType==='expense'?'active':''}" id="ctype-exp" onclick="setCatSheetType('expense')">💸 Pengeluaran</div>
-            <div class="pill ${_newCatType==='income'?'active':''}" id="ctype-inc" onclick="setCatSheetType('income')">💰 Pemasukan</div>
-          </div>
-        </div>
-
-        <div class="field-row">
-          <div class="field">
-            <label>Nama Kategori</label>
-            <input type="text" id="cs-name" value="${nameVal}" placeholder="mis. Streaming, Gym..."/>
-          </div>
-          <div class="field">
-            <label>Grup</label>
-            <input type="text" id="cs-group" value="${groupVal || _newCatGroup}" placeholder="mis. Hiburan, Rumah..." list="cs-group-list"/>
-            <datalist id="cs-group-list">
-              ${groups.map(g=>`<option value="${g}">`).join('')}
-            </datalist>
-          </div>
-        </div>
-
-        <div class="field">
-          <label>Ikon</label>
-          <div class="emoji-pick-grid" id="cs-emoji-grid">
-            ${CAT_EMOJI_OPTIONS.map(e=>`
-              <span class="emoji-pick-item${e===_newCatEmoji?' sel':''}" onclick="setCatSheetEmoji('${e}')">${e}</span>
-            `).join('')}
-          </div>
-        </div>
-
-        <div class="field">
-          <label>Warna</label>
-          <div style="display:flex;gap:7px;flex-wrap:wrap" id="cs-color-grid">
-            ${CAT_COLOR_OPTIONS.map(c=>`
-              <div onclick="setCatSheetColor('${c}')" style="width:28px;height:28px;border-radius:50%;background:${c};cursor:pointer;flex-shrink:0;
-                border:3px solid ${c===_newCatColor?'#fff':'transparent'};
-                box-shadow:${c===_newCatColor?'0 0 0 2px '+c:'none'};transition:.15s"></div>
-            `).join('')}
-          </div>
-        </div>
-
-        <!-- Preview row -->
-        <div style="display:flex;align-items:center;gap:12px;background:var(--bg3);border-radius:10px;padding:12px 14px;margin-bottom:4px">
-          <div id="cs-prev-icon" style="width:44px;height:44px;border-radius:12px;background:${_newCatColor}22;display:flex;align-items:center;justify-content:center;font-size:24px">${_newCatEmoji}</div>
-          <div style="flex:1">
-            <div id="cs-prev-name" style="font-size:14px;font-weight:600">${nameVal||'Nama Kategori'}</div>
-            <div id="cs-prev-group" style="font-size:11px;color:var(--text2)">${groupVal||_newCatGroup||'Grup'}</div>
-          </div>
-          <div id="cs-prev-dot" style="width:10px;height:10px;border-radius:50%;background:${_newCatColor}"></div>
-        </div>
-
-        <div class="sheet-actions" style="margin-top:16px">
-          <button class="btn btn-ghost" onclick="closeCatSheet()">Batal</button>
-          <button class="btn btn-accent" onclick="saveCatSheet(${isEdit})">${isEdit?'Simpan Perubahan':'Tambah Kategori'}</button>
-        </div>
-        ${isEdit&&_editingCatId?`<button class="btn btn-danger" style="width:100%;justify-content:center;margin-top:8px" onclick="deleteCat('${_editingCatId}')">🗑️ Hapus Kategori Ini</button>`:''}
-      </div>
-    </div>`;
-
-  document.body.appendChild(sheetEl);
-  sheetEl.addEventListener('click', e => { if(e.target===sheetEl) closeCatSheet(); });
-
-  // Live preview bindings
-  setTimeout(()=>{
-    document.getElementById('cs-name')?.addEventListener('input', e=>{
-      if(el) el.textContent = e.target.value || 'Nama Kategori';
-    });
-    document.getElementById('cs-group')?.addEventListener('input', e=>{
-      if(el) el.textContent = e.target.value || 'Grup';
-    });
-  }, 30);
-}
-
-function closeCatSheet() {
-  document.getElementById('cat-add-sheet')?.remove();
-}
-
-function setCatSheetType(t) {
-  _newCatType = t;
-  document.getElementById('ctype-exp')?.classList.toggle('active', t==='expense');
-  document.getElementById('ctype-inc')?.classList.toggle('active', t==='income');
-}
-
-function setCatSheetEmoji(e) {
-  _newCatEmoji = e;
-  document.querySelectorAll('.emoji-pick-item').forEach(el =>
-    el.classList.toggle('sel', el.textContent === e));
-  const prev = document.getElementById('cs-prev-icon');
-  if(prev) { prev.textContent = e; prev.style.background = _newCatColor+'22'; }
-}
-
-function setCatSheetColor(c) {
-  _newCatColor = c;
-  document.querySelectorAll('#cs-color-grid div').forEach(el => {
-    const ec = el.style.background;
-    el.style.border = `3px solid ${active?'#fff':'transparent'}`;
-    el.style.boxShadow = active ? `0 0 0 2px ${c}` : 'none';
-  });
-  if(prev) prev.style.background = c+'22';
-  const dot = document.getElementById('cs-prev-dot');
-  if(dot) dot.style.background = c;
-}
-
-function saveCatSheet(isEdit) {
-  const group = document.getElementById('cs-group')?.value.trim();
-  if (!name)  { showToast('Masukkan nama kategori','error'); return; }
-  if (!group) { showToast('Masukkan nama grup','error'); return; }
-
-
-  if (isEdit && _editingCatId) {
-    if (isDefault) {
-      // Override default: hide original, save modified version as custom with same id
-      if (!hidden.includes(_editingCatId)) { hidden.push(_editingCatId); localStorage.setItem('hidden_cats', JSON.stringify(hidden)); }
-      if (idx >= 0) existing[idx] = {id:_editingCatId, name, group, icon:_newCatEmoji, color:_newCatColor, type:_newCatType};
-      else existing.push({id:_editingCatId, name, group, icon:_newCatEmoji, color:_newCatColor, type:_newCatType});
-    } else {
-      if (idx >= 0) existing[idx] = {...existing[idx], name, group, icon:_newCatEmoji, color:_newCatColor, type:_newCatType};
-    }
-    showToast('Kategori diperbarui ✓');
-  } else {
-    const id = 'custom_' + Date.now();
-    existing.push({id, name, icon:_newCatEmoji, color:_newCatColor, group, type:_newCatType});
-    showToast(`"${_newCatEmoji} ${name}" ditambahkan!`);
-  }
-
-  localStorage.setItem('custom_cats_v2', JSON.stringify(existing));
-  _catPageType = _newCatType;
-  closeCatSheet();
-  navigate('categories');
-}
-
-// keep old name working
-function toggleAddCatForm() { openAddCatSheet(); }
-function setNewCatType(t)   { _newCatType = t; }
-function setNewCatEmoji(e)  { _newCatEmoji = e; }
-function setNewCatColor(c)  { _newCatColor = c; }
-function saveNewCategory()  { saveCatSheet(false); }
-
-
-export function initModals() {
-  injectModalHTML()
-  // window assignments already done at module level above
-}
-
-function injectModalHTML() {
-  // Modal HTML is already in index.html shell — nothing to inject
-}
-
 // ===== ADD/EDIT TRANSACTION =====
 let editingTxId = null;
 let txType = 'expense';
 function openAddTransaction() {
   try {
     editingTxId = null;
-    const amtEl = document.getElementById('tx-amount');
-    const noteEl = document.getElementById('tx-note');
-    const dateEl = document.getElementById('tx-date');
-    const modalEl = document.getElementById('tx-modal');
-    if (!modalEl) { console.error('tx-modal not found in DOM'); return; }
-    if (amtEl) amtEl.value = '';
-    if (noteEl) noteEl.value = '';
-    if (dateEl) dateEl.value = new Date().toISOString().split('T')[0];
-    setTxType('expense');
+    const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+    setVal('tx-amount', '');
+    setVal('tx-note', '');
+    let defaultDate = toLocalDateString(new Date());
+    const calDate = sessionStorage.getItem('cal_selected_date');
+    if (calDate) { defaultDate = calDate; sessionStorage.removeItem('cal_selected_date'); }
+    setVal('tx-date', defaultDate);
+
+    // Check preset type from filter button click
+    const presetType = sessionStorage.getItem('preset_tx_type');
+    if (presetType) sessionStorage.removeItem('preset_tx_type');
+    setTxType(presetType || 'expense');
     populateTxAccounts();
-    modalEl.classList.add('open');
+    attachMoneyFormatter(document.getElementById('tx-amount'));
+    const modalEl = document.getElementById('tx-modal');
+    if (modalEl) modalEl.classList.add('open');
+    setTimeout(() => document.getElementById('tx-amount')?.focus(), 100);
   } catch(err) {
     console.error('openAddTransaction error:', err);
   }
@@ -961,16 +766,16 @@ function openEditTx(id) {
     if (!t) return;
     editingTxId = id;
     setTxType(t.type);
-    const amtEl = document.getElementById('tx-amount');
-    const noteEl = document.getElementById('tx-note');
-    const dateEl = document.getElementById('tx-date');
-    const modalEl = document.getElementById('tx-modal');
-    if (!modalEl) { console.error('tx-modal not found'); return; }
-    if (amtEl) amtEl.value = t.amount;
-    if (noteEl) noteEl.value = t.note||'';
-    if (dateEl) dateEl.value = t.date;
+    const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+    // Format amount with thousands separator
+    const amtStr = String(Math.round(Number(t.amount))).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    setVal('tx-amount', amtStr);
+    setVal('tx-note', t.note||'');
+    setVal('tx-date', t.date);
     populateTxAccounts(t.account_id, t.to_account_id, t.category);
-    modalEl.classList.add('open');
+    attachMoneyFormatter(document.getElementById('tx-amount'));
+    const modalEl = document.getElementById('tx-modal');
+    if (modalEl) modalEl.classList.add('open');
   } catch(err) {
     console.error('openEditTx error:', err);
   }
@@ -1016,7 +821,7 @@ function populateTxCategories(selCat) {
 
 async function saveTx() {
   const btn = document.getElementById('save-tx-btn');
-  const amount = parseFloat(document.getElementById('tx-amount').value);
+  const amount = parseMoneyInput(document.getElementById('tx-amount').value);
   const account_id = document.getElementById('tx-account').value;
   const note = document.getElementById('tx-note').value.trim();
   const date = document.getElementById('tx-date').value;
@@ -1026,34 +831,38 @@ async function saveTx() {
   if (!amount || amount <= 0) { showToast('Masukkan jumlah yang valid','error'); return; }
   if (!account_id) { showToast('Pilih rekening','error'); return; }
   if (!date) { showToast('Pilih tanggal','error'); return; }
+  if (txType === 'transfer' && (!to_account_id || account_id === to_account_id)) {
+    showToast('Pilih rekening tujuan yang berbeda','error'); return;
+  }
 
   btn.disabled = true;
   btn.innerHTML = '<span class="btn-spinner"></span>Menyimpan...';
 
-  const payload = { user_id:state.currentUser.id, type:txType, amount, category, account_id, to_account_id, note, date };
-
   try {
     if (editingTxId) {
-      // Reverse old balance effect
-      const old = state.transactions.find(t=>t.id===editingTxId);
-      if (old) await reverseBalance(old);
-      await state.supabase.from('transactions').update(payload).eq('id',editingTxId);
-      const idx = state.transactions.findIndex(t=>t.id===editingTxId);
-      if(idx>=0) state.transactions[idx] = {...allTransactions[idx],...payload};
-    } else {
-      const { data, error } = await state.supabase.from('transactions').insert([payload]).select().single();
+      // For edits — update DB only (don't change balances manually here since old code was buggy)
+      const { error } = await state.supabase.from('transactions')
+        .update({ type:txType, amount, category, account_id, to_account_id, note, date })
+        .eq('id', editingTxId);
       if (error) throw error;
-      state.transactions.unshift(data);
+      const idx = state.transactions.findIndex(t=>t.id===editingTxId);
+      if (idx >= 0) {
+        state.transactions[idx] = {...state.transactions[idx], type:txType, amount, category, account_id, to_account_id, note, date};
+      }
+      showToast('Transaksi diperbarui ✓');
+    } else {
+      // Use DB helper that auto-updates balances
+      await DB.createTransaction({ type:txType, amount, category, account_id, to_account_id, note, date });
+      showToast('Transaksi disimpan ✓');
     }
-    await applyBalance(payload);
     closeTxModal();
-    showToast(editingTxId ? 'Transaksi diperbarui' : 'Transaksi disimpan!');
     editingTxId = null;
-    navigate(currentPage);
+    navigate(state.currentPage);
   } catch(e) {
-    showToast(e.message,'error');
+    showToast(e.message || 'Gagal menyimpan','error');
+  } finally {
     btn.disabled = false;
-    btn.textContent = 'Simpan Transaksi';
+    btn.textContent = editingTxId ? 'Simpan Perubahan' : 'Simpan Transaksi';
   }
 }
 
@@ -1095,6 +904,14 @@ async function reverseBalance(t) {
   ac.balance = newBal;
 }
 
+
+// ── Initialize modals (called once after shell renders) ───────────────
+export function initModals() {
+  // Modal HTML is already in index.html
+  // Window assignments are done at module level below
+  // This function exists for backwards compatibility
+}
+
 // ── Module-level window assignments ──────────────────────────────────
 // These must be at module level so onclick handlers work before initModals() is called
 window.openSheet              = openSheet
@@ -1121,12 +938,14 @@ window.renderColorPicker      = renderColorPicker
 window.selectAcctColor        = selectAcctColor
 window.updateAccountPreview   = updateAccountPreview
 window.openAddBudget          = openAddBudget
+window.openEditBudget         = openEditBudget
 window.selectBudgetCat        = selectBudgetCat
 window.renderBudgetCatPicker  = renderBudgetCatPicker
 window.submitBudgetModal      = submitBudgetModal
 window.openAddRecurring       = openAddRecurring
 window.setRecType             = setRecType
 window.submitRecurringModal   = submitRecurringModal
+window.deleteRecurring        = deleteRecurring
 window.openAddDebt            = openAddDebt
 window.setDebtDir             = setDebtDir
 window.submitDebtModal        = submitDebtModal
@@ -1139,3 +958,16 @@ window.saveTx                 = saveTx
 window.openEditTx             = openEditTx
 window.openEditAccount        = openEditAccount
 window.logRecurring           = typeof logRecurring !== 'undefined' ? logRecurring : () => {}
+
+// Quick date buttons in tx modal
+function setTxDateQuick(offsetOrKey) {
+  const dateEl = document.getElementById('tx-date');
+  if (!dateEl) return;
+  const d = new Date();
+  if (offsetOrKey === 'yesterday') d.setDate(d.getDate() - 1);
+  else if (typeof offsetOrKey === 'number') d.setDate(d.getDate() + offsetOrKey);
+  dateEl.value = toLocalDateString(d);
+  document.querySelectorAll('.date-quick-btn').forEach(b => b.classList.remove('active'));
+  if (typeof event !== 'undefined' && event.currentTarget) event.currentTarget.classList.add('active');
+}
+window.setTxDateQuick = setTxDateQuick;

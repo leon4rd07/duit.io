@@ -8,6 +8,9 @@ import { fmt, fmtShort, fmtDate, monthKey, monthLabel } from '../lib/utils.js'
 import { getCatObj, CAT_COLORS } from '../lib/categories.js'
 import { AVATAR_COLORS, BANK_ICONS} from '../lib/config.js'
 
+function isBalHidden(id) { try { if (localStorage.getItem('hide_total_balance')==='1') return true; const p = JSON.parse(localStorage.getItem('acct_prefs_v1')||'{}'); return p[`hide_bal_${id}`]===true } catch { return false } }
+function maskIf(hidden, str) { return hidden ? '••••••' : str }
+
 // ===== DASHBOARD =====
 function renderDashboard(area, actions) {
   const mk = monthKey(state.dashboardMonth);
@@ -47,15 +50,15 @@ function renderDashboard(area, actions) {
     <div class="summary-grid mb-16">
       <div class="summary-card">
         <div class="stat-label">Saldo Total</div>
-        <div class="stat-value accent" style="font-size:18px">${fmtShort(totalBalance)}</div>
+        <div class="stat-value accent" style="font-size:18px">${isBalHidden('total') ? '••••' : fmtShort(totalBalance)}</div>
       </div>
       <div class="summary-card">
         <div class="stat-label">Pemasukan</div>
-        <div class="stat-value positive" style="font-size:18px">${fmtShort(income)}</div>
+        <div class="stat-value positive" style="font-size:18px">${isBalHidden('total') ? '••••' : fmtShort(income)}</div>
       </div>
       <div class="summary-card">
         <div class="stat-label">Pengeluaran</div>
-        <div class="stat-value negative" style="font-size:18px">${fmtShort(expense)}</div>
+        <div class="stat-value negative" style="font-size:18px">${isBalHidden('total') ? '••••' : fmtShort(expense)}</div>
       </div>
     </div>
 
@@ -88,9 +91,9 @@ function renderDashboard(area, actions) {
       <div style="display:flex;gap:10px;flex-wrap:wrap">
         ${state.accounts.slice(0,4).map(a=>`
           <div style="background:var(--bg3);border-radius:10px;padding:12px 16px;min-width:130px">
-            <div style="font-size:11px;color:var(--text2);margin-bottom:3px">${BANK_ICONS[a.bank]||'💳'} ${a.bank}</div>
+            <div style="font-size:11px;color:var(--text2);margin-bottom:3px">${a.icon || BANK_ICONS[a.bank] || '💳'} ${a.bank}</div>
             <div style="font-size:13px;font-weight:600;margin-bottom:2px">${a.name}</div>
-            <div style="font-size:15px;font-weight:700;color:var(--accent)">${fmtShort(a.balance)}</div>
+            <div style="font-size:15px;font-weight:700;color:var(--accent)">${maskIf(isBalHidden(a.id), fmtShort(a.balance))}</div>
           </div>`).join('') || '<div class="text-muted text-sm">Tambah rekening untuk mulai</div>'}
       </div>
     </div>`;
@@ -141,7 +144,7 @@ function txItemHtml(t, showDelete = false) {
         <div class="tx-name">${t.note||t.category||'Transaksi'}</div>
         <div class="tx-sub">${t.category||'Transfer'} · ${acc?acc.name:''} · ${fmtDate(t.date)}</div>
       </div>
-      <div class="tx-amount ${amtClass}">${sign}${fmtShort(t.amount)}</div>
+      <div class="tx-amount ${amtClass}">${sign}${isBalHidden('total') ? '•••••' : fmtShort(t.amount)}</div>
     </div>
     <button class="tx-delete-btn" onclick="event.stopPropagation();deleteTx('${t.id}')" title="Hapus">🗑️</button>
   </div>`;
