@@ -34,7 +34,37 @@
   <div id="app"></div>
 
   <!-- Camera modal -->
-  <div id="camera-modal"></div>
+  <!-- IN-APP CAMERA MODAL -->
+<div id="camera-modal">
+  <div class="cam-topbar">
+    <div>
+      <div class="cam-title">📷 Foto Struk</div>
+      <div class="cam-mode" id="cam-mode-label">Posisikan struk dalam frame</div>
+    </div>
+    <button class="cam-close-btn" onclick="closeCamera()" style="background:rgba(255,255,255,0.1);border:none;color:#fff;font-size:18px;cursor:pointer;width:36px;height:36px;border-radius:50%">✕</button>
+  </div>
+  <div class="cam-viewfinder">
+    <video id="cam-video" autoplay playsinline muted></video>
+    <canvas id="cam-canvas" style="display:none"></canvas>
+    <div class="cam-overlay">
+      <div class="cam-bracket tl"></div>
+      <div class="cam-bracket tr"></div>
+      <div class="cam-bracket bl"></div>
+      <div class="cam-bracket br"></div>
+      <div class="cam-scan-hint">Arahkan kamera ke struk</div>
+      <div class="cam-scan-line"></div>
+    </div>
+  </div>
+  <div class="cam-controls">
+    <button class="cam-flip-btn" onclick="flipCamera()" title="Flip kamera">🔄</button>
+    <div class="cam-shutter" onclick="capturePhoto()" title="Ambil foto">
+      <div class="cam-shutter-inner"></div>
+    </div>
+    <div style="width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;cursor:pointer" onclick="openGallery()" title="Pilih dari galeri">
+      🖼️
+    </div>
+  </div>
+</div>
   <div class="cam-flash" id="cam-flash"></div>
   <input type="file" id="gallery-input" accept="image/*" style="display:none"/>
 

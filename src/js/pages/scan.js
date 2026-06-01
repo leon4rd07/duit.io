@@ -37,6 +37,14 @@ function renderScan(area, actions) {
       <h2 class="scan-intro-title">Scan Struk</h2>
       <p class="scan-intro-desc">Pilih cara untuk memasukkan foto struk. Setelah dipilih, sistem akan otomatis membaca dan mengisi detail transaksi.</p>
 
+      ${state.lastScanError ? `
+        <div style="background:var(--red-dim);border:1px solid var(--red);color:var(--red);padding:12px;border-radius:10px;margin-bottom:16px;font-size:13px;text-align:left">
+          <strong>⚠️ Error sebelumnya:</strong><br>
+          ${state.lastScanError}
+          <button class="btn btn-ghost btn-sm" style="margin-top:8px;font-size:11px" onclick="clearScanError()">Tutup</button>
+        </div>
+      ` : ''}
+
       <div class="scan-option-grid">
         <button class="scan-option" onclick="openScanCamera()">
           <div class="scan-option-icon">📸</div>
@@ -55,6 +63,12 @@ function renderScan(area, actions) {
     </div>
   `
 }
+
+function clearScanError() {
+  state.lastScanError = null
+  navigate('scan')
+}
+window.clearScanError = clearScanError
 
 // ── Camera option ────────────────────────────────────────────────────
 function openScanCamera() {
@@ -163,7 +177,8 @@ Jika bukan struk/nota, set is_receipt=false.`
     navigate('scan')
   } catch (err) {
     state.scanIsAnalyzing = false
-    showToast(err.message || 'Gagal scan: ' + err, 'error')
+    state.lastScanError = err.message || String(err)
+    showToast('Gagal scan: ' + state.lastScanError, 'error')
     navigate('scan')
   }
 }
