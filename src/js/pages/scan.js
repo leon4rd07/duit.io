@@ -331,9 +331,20 @@ function showScanResult(area) {
 
       <div class="field" style="margin-top:16px">
         <label>Simpan ke Rekening</label>
-        <select id="scan-acct-select">
-          ${state.accounts.map(a => `<option value="${a.id}" ${a.id===state.selectedScanAccountId?'selected':''}>${a.icon || BANK_ICONS[a.bank] || '💳'} ${a.name} (${fmtShort(a.balance)})</option>`).join('')}
-        </select>
+        <div class="scan-acct-grid">
+          ${state.accounts.map(a => `
+            <div class="scan-acct-option ${a.id===state.selectedScanAccountId?'selected':''}"
+                 onclick="selectScanAccount('${a.id}')"
+                 style="${a.id===state.selectedScanAccountId?'border-color:'+(a.color||'var(--accent)'):''}">
+              <div class="scan-acct-icon">${a.icon || BANK_ICONS[a.bank] || '💳'}</div>
+              <div class="scan-acct-info">
+                <div class="scan-acct-name">${a.name}</div>
+                <div class="scan-acct-bal">${fmtShort(a.balance)}</div>
+              </div>
+              ${a.id===state.selectedScanAccountId?'<div class="scan-acct-check">✓</div>':''}
+            </div>
+          `).join('')}
+        </div>
       </div>
 
       <div style="display:flex;gap:10px;margin-top:14px">
@@ -350,11 +361,16 @@ function showScanResult(area) {
   `
 }
 
+function selectScanAccount(id) {
+  state.selectedScanAccountId = id
+  navigate('scan')
+}
+window.selectScanAccount = selectScanAccount
+
 async function saveScanTx() {
   const r = state.lastScanResult
   if (!r) return
-  const sel = document.getElementById('scan-acct-select')
-  const accId = sel?.value || state.accounts[0]?.id
+  const accId = state.selectedScanAccountId || state.accounts[0]?.id
   if (!accId) { showToast('Pilih rekening', 'error'); return }
 
   try {

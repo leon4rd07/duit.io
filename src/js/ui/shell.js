@@ -57,10 +57,9 @@ function getShellHTML() {
   <nav class="mobile-nav">
     <div class="mobile-nav-inner">
       <div class="mobile-nav-item" data-page="dashboard" onclick="navigate('dashboard')"><span class="mnav-icon">📊</span>Beranda</div>
+      <div class="mobile-nav-item" data-page="transactions" onclick="navigate('transactions')"><span class="mnav-icon">📝</span>Transaksi</div>
       <div class="mobile-nav-item" data-page="accounts" onclick="navigate('accounts')"><span class="mnav-icon">💳</span>Rekening</div>
       <div class="mobile-nav-item" data-page="scan" onclick="navigate('scan')"><span class="mnav-icon">📷</span>Scan</div>
-      <div class="mobile-nav-item" data-page="splitbill" onclick="navigate('splitbill')"><span class="mnav-icon">🍽️</span>Split</div>
-      <div class="mobile-nav-item" data-page="advisor" onclick="navigate('advisor')"><span class="mnav-icon">🤖</span>Advisor</div>
       <div class="mobile-nav-item" data-page="reports" onclick="navigate('reports')"><span class="mnav-icon">📈</span>Laporan</div>
     </div>
   </nav>
