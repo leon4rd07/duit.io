@@ -566,9 +566,11 @@ function settleDebt(id) {
   const d = state.debts.find(x => x.id === id);
   if (!d) return;
   _settlingDebtId = id;
-  document.getElementById('settle-title').textContent = `Pelunasan — ${d.contact_name}`;
-  document.getElementById('settle-remaining').textContent = fmt(d.remaining);
-  document.getElementById('settle-amount').value = '';
+  const setTxt = (elId, val) => { const el = document.getElementById(elId); if (el) el.textContent = val; };
+  const setVal = (elId, val) => { const el = document.getElementById(elId); if (el) el.value = val; };
+  setTxt('settle-title', `Pelunasan — ${d.contact_name}`);
+  setTxt('settle-remaining', fmt(d.remaining));
+  setVal('settle-amount', '');
   attachMoneyFormatter(document.getElementById('settle-amount'));
   openSheet('settle-modal');
 }
@@ -790,20 +792,152 @@ function setTxType(type) {
     b.classList.remove('active-expense','active-income','active-transfer');
     if(['expense','income','transfer'][i]===type) b.classList.add('active-'+type);
   });
-  document.getElementById('tx-toac-wrap').style.display = type==='transfer'?'block':'none';
-  document.getElementById('tx-cat-wrap').style.display = type==='transfer'?'none':'block';
+  const toacWrap = document.getElementById('tx-toac-wrap');
+  const catWrap = document.getElementById('tx-cat-wrap');
+  if (toacWrap) toacWrap.style.display = type==='transfer'?'block':'none';
+  if (catWrap) catWrap.style.display = type==='transfer'?'none':'block';
   populateTxCategories();
 }
 
 function populateTxAccounts(selAc, selToAc, selCat) {
-  const ac = document.getElementById('tx-account');
-  const toAc = document.getElementById('tx-to-account');
-  const opts = state.accounts.map(a=>`<option value="${a.id}" ${a.id===selAc?'selected':''}>${BANK_ICONS[a.bank]||'💳'} ${a.name} (${fmtShort(a.balance)})</option>`).join('');
-  ac.innerHTML = opts || '<option>Tambah rekening dulu</option>';
-  toAc.innerHTML = opts;
-  if (selToAc) { [...toAc.options].forEach(o=>{ if(o.value===selToAc) o.selected=true; }); }
+  // Set hidden inputs and button displays (2-step picker)
+  const acInput = document.getElementById('tx-account');
+  const toAcInput = document.getElementById('tx-to-account');
+  const acDisplay = document.getElementById('tx-account-display');
+  const toAcDisplay = document.getElementById('tx-to-account-display');
+
+  // Default 'from' account
+  const fromId = selAc || state.accounts[0]?.id || '';
+  if (acInput) acInput.value = fromId;
+  setAccountDisplay('tx-account-display', fromId, 'Pilih rekening');
+
+  // 'to' account (transfer)
+  if (toAcInput) toAcInput.value = selToAc || '';
+  setAccountDisplay('tx-to-account-display', selToAc, 'Pilih rekening tujuan');
+
   populateTxCategories(selCat);
 }
+
+function setAccountDisplay(displayId, accId, placeholder) {
+  const el = document.getElementById(displayId);
+  if (!el) return;
+  const a = state.accounts.find(x => x.id === accId);
+  if (a) {
+    el.innerHTML = `${a.icon || BANK_ICONS[a.bank] || '💳'} ${a.name} <span style="color:var(--text3);font-size:11px">(${fmtShort(a.balance)})</span>`;
+  } else {
+    el.textContent = placeholder;
+  }
+}
+
+// ── 2-step account picker (category → account) ─────────────────────────
+let _pickerTarget = 'from'; // 'from' | 'to' | 'scan'
+let _pickerCategory = null;
+
+function openAccountPicker(target) {
+  _pickerTarget = target;
+  _pickerCategory = null;
+  renderAccountPicker();
+  document.getElementById('account-picker-modal')?.classList.add('open');
+}
+
+function renderAccountPicker() {
+  const modal = document.getElementById('account-picker-modal');
+  if (!modal) return;
+
+  // Group accounts by category
+  const groups = {};
+  state.accounts.forEach(a => {
+    const cat = a.category || 'Lainnya';
+    if (!groups[cat]) groups[cat] = [];
+    groups[cat].push(a);
+  });
+
+  let bodyHtml;
+  if (!_pickerCategory) {
+    // Step 1: choose category
+    bodyHtml = `
+      <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Pilih kategori rekening:</div>
+      <div class="picker-cat-list">
+        ${Object.entries(groups).map(([cat, accs]) => {
+          const total = accs.reduce((s,a)=>s+Number(a.balance), 0);
+          return `<div class="picker-cat-item" onclick="pickerSelectCategory('${cat.replace(/'/g,'')}')">
+            <div style="flex:1">
+              <div class="picker-cat-name">📂 ${cat}</div>
+              <div class="picker-cat-sub">${accs.length} rekening · ${fmtShort(total)}</div>
+            </div>
+            <span style="color:var(--text3);font-size:18px">›</span>
+          </div>`;
+        }).join('')}
+      </div>
+    `;
+  } else {
+    // Step 2: choose account within category
+    const accs = groups[_pickerCategory] || [];
+    bodyHtml = `
+      <button class="btn btn-ghost btn-sm" style="margin-bottom:12px" onclick="pickerBack()">‹ Kembali ke kategori</button>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:12px">📂 ${_pickerCategory}</div>
+      <div class="picker-acct-list">
+        ${accs.map(a => `
+          <div class="picker-acct-item" onclick="pickerSelectAccount('${a.id}')" style="border-left:3px solid ${a.color||'var(--accent)'}">
+            <div class="picker-acct-icon">${a.icon || BANK_ICONS[a.bank] || '💳'}</div>
+            <div style="flex:1">
+              <div class="picker-acct-name">${a.name}</div>
+              <div class="picker-acct-bank">${a.bank}</div>
+            </div>
+            <div class="picker-acct-bal" style="color:${a.color||'var(--accent)'}">${fmtShort(a.balance)}</div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  modal.innerHTML = `
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-head">
+        <div class="sheet-title">${_pickerTarget === 'to' ? 'Rekening Tujuan' : 'Pilih Rekening'}</div>
+        <button class="sheet-close" onclick="closeAccountPicker()">✕</button>
+      </div>
+      <div class="sheet-body">${bodyHtml}</div>
+    </div>
+  `;
+}
+
+function pickerSelectCategory(cat) {
+  _pickerCategory = cat;
+  renderAccountPicker();
+}
+
+function pickerBack() {
+  _pickerCategory = null;
+  renderAccountPicker();
+}
+
+function pickerSelectAccount(accId) {
+  if (_pickerTarget === 'from') {
+    const inp = document.getElementById('tx-account');
+    if (inp) inp.value = accId;
+    setAccountDisplay('tx-account-display', accId, 'Pilih rekening');
+  } else if (_pickerTarget === 'to') {
+    const inp = document.getElementById('tx-to-account');
+    if (inp) inp.value = accId;
+    setAccountDisplay('tx-to-account-display', accId, 'Pilih rekening tujuan');
+  } else if (_pickerTarget === 'scan') {
+    state.selectedScanAccountId = accId;
+    if (window.navigate) window.navigate('scan');
+  }
+  closeAccountPicker();
+}
+
+function closeAccountPicker() {
+  document.getElementById('account-picker-modal')?.classList.remove('open');
+}
+
+window.openAccountPicker    = openAccountPicker;
+window.pickerSelectCategory = pickerSelectCategory;
+window.pickerBack           = pickerBack;
+window.pickerSelectAccount  = pickerSelectAccount;
+window.closeAccountPicker   = closeAccountPicker;
 
 function populateTxCategories(selCat) {
   const type = txType === 'income' ? 'income' : 'expense';
