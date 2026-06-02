@@ -8,6 +8,7 @@ import { AVATAR_COLORS }     from '../lib/config.js'
 import * as DB                from '../lib/supabase.js'
 
 import { callAI } from '../lib/ai.js'
+import { ACTION_DEFINITIONS, parseActions, describeAction, executeAction } from '../lib/aiActions.js'
 
 let advisorHistory = []
 let advisorTyping  = false
@@ -51,10 +52,15 @@ function buildFinancialContext() {
       return `${b.category}: ${pct}% dari Rp ${Math.round(b.limit_amount).toLocaleString('id-ID')}`;
     }).join(', ');
 
-  // Active debts
+  // Active debts with short IDs
   const activeDebts = state.debts.filter(d=>!d.settled);
   const totalLent = activeDebts.filter(d=>d.direction==='lent').reduce((s,d)=>s+Number(d.remaining),0);
   const totalOwe  = activeDebts.filter(d=>d.direction==='owe').reduce((s,d)=>s+Number(d.remaining),0);
+  const debtList = activeDebts.slice(0, 20).map(d => {
+    const shortId = (d.id||'').substring(0, 8);
+    const dir = d.direction === 'lent' ? 'piutang' : 'hutang';
+    return `[${shortId}] ${d.contact_name} ${dir} Rp ${Math.round(d.remaining).toLocaleString('id-ID')}`;
+  }).join(' | ') || 'Tidak ada';
 
   // 6-month net savings
   const sixMonthNet = [];
@@ -68,6 +74,21 @@ function buildFinancialContext() {
   const totalBalance = state.accounts.reduce((s,a)=>s+Number(a.balance),0);
   const userName = (state.currentUser?.user_metadata?.full_name || 'Pengguna').split(' ')[0];
 
+  // Recent transactions with short IDs (last 20)
+  const recentTx = state.transactions.slice(0, 20).map(t => {
+    const shortId = (t.id||'').substring(0, 8);
+    const acc = state.accounts.find(a => a.id === t.account_id);
+    const accName = acc ? acc.name : '?';
+    const typeShort = { expense: 'Out', income: 'In', transfer: 'Tf' }[t.type] || t.type;
+    return `[${shortId}] ${t.date} ${typeShort} Rp ${Math.round(t.amount).toLocaleString('id-ID')} · ${t.category||'Transfer'} · ${accName}${t.note?' · '+t.note:''}`;
+  }).join('\n');
+
+  // Available categories
+  const expenseCats = getCatGroups('expense');
+  const incomeCats = getCatGroups('income');
+  const flatExpenseCats = Object.values(expenseCats).flat().map(c => `${c.icon} ${c.name}`).join(', ');
+  const flatIncomeCats  = Object.values(incomeCats).flat().map(c => `${c.icon} ${c.name}`).join(', ');
+
   return `Kamu adalah AI Financial Advisor untuk aplikasi duit.io. Nama pengguna: ${userName}.
 
 DATA KEUANGAN REAL-TIME (${now.toLocaleDateString('id-ID',{month:'long',year:'numeric'})}):
@@ -80,18 +101,27 @@ DATA KEUANGAN REAL-TIME (${now.toLocaleDateString('id-ID',{month:'long',year:'nu
 - Status anggaran: ${budgetStatus || 'Belum ada anggaran'}
 - Hutang saya: Rp ${Math.round(totalOwe).toLocaleString('id-ID')}
 - Piutang (orang lain hutang ke saya): Rp ${Math.round(totalLent).toLocaleString('id-ID')}
+- Hutang/Piutang aktif (dengan id): ${debtList}
 - Net tabungan 6 bulan terakhir: ${sixMonthNet.join(' | ')}
 - Total transaksi tercatat: ${state.transactions.length}
 - Transaksi rutin terdaftar: ${state.recurring.map(r=>r.name).join(', ') || 'Belum ada'}
 
-INSTRUKSI:
+20 TRANSAKSI TERAKHIR (dengan id pendek untuk referensi hapus):
+${recentTx || '(belum ada transaksi)'}
+
+KATEGORI PENGELUARAN TERSEDIA: ${flatExpenseCats}
+KATEGORI PEMASUKAN TERSEDIA: ${flatIncomeCats}
+
+INSTRUKSI UMUM:
 - Jawab dalam Bahasa Indonesia yang santai tapi profesional
 - Gunakan data di atas untuk menjawab pertanyaan keuangan spesifik
 - Berikan saran konkret, bukan generik
 - Format angka dalam Rupiah Indonesia (Rp X.XXX.XXX)
 - Boleh pakai bullet points untuk daftar, tapi jaga agar jawaban tidak terlalu panjang
 - Jika ditanya sesuatu di luar data yang tersedia, katakan dengan jujur
-- Fokus pada insight yang actionable dan relevan dengan situasi pengguna`;
+- Fokus pada insight yang actionable dan relevan dengan situasi pengguna
+
+${ACTION_DEFINITIONS}`;
 }
 
 function renderAdvisor(area, actions) {
@@ -122,25 +152,16 @@ function renderAdvisor(area, actions) {
         <div class="ctx-stat">Net: <span style="color:${thisIncome-thisExpense>=0?'var(--green)':'var(--red)'}">${fmtShort(thisIncome-thisExpense)}</span></div>
       </div>
 
-
-
       <div class="quick-chips" id="quick-chips">
         ${quickPrompts.map(q=>`<div class="quick-chip" onclick="sendAdvisorMsg(${JSON.stringify(q)})">${q}</div>`).join('')}
       </div>
 
       <div class="advisor-messages" id="advisor-msgs">
-        ${advisorHistory.length === 0 ? `
-          <div class="msg-row">
-            <div class="msg-avatar ai">🤖</div>
-            <div class="msg-bubble ai">
-              Halo! Aku AI Financial Advisor duit.io. Aku punya akses ke data keuangan kamu — saldo, transaksi, anggaran, hutang, semuanya.<br><br>
-              Mau tanya apa? Boleh langsung, misalnya: <em>"bulan ini aku boros di mana?"</em> atau <em>"bisa bantu buat rencana tabungan?"</em>
-            </div>
-          </div>` : advisorHistory.map(m => msgHtml(m)).join('')}
+        ${renderMessages()}
       </div>
 
       <div class="advisor-input-wrap">
-        <textarea class="advisor-input" id="advisor-input" placeholder="Tanya sesuatu tentang keuanganmu..." rows="1"
+        <textarea class="advisor-input" id="advisor-input" placeholder="Tanya sesuatu atau minta aksi (cth: ubah saldo BCA jadi 100rb)..." rows="1"
           onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();triggerAdvisorSend()}"
           oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"></textarea>
         <button class="advisor-send" id="advisor-send-btn" onclick="triggerAdvisorSend()" title="Kirim">➤</button>
@@ -150,22 +171,135 @@ function renderAdvisor(area, actions) {
   scrollAdvisorToBottom();
 }
 
-function msgHtml(m) {
+function renderMessages() {
+  if (advisorHistory.length === 0) {
+    return `
+      <div class="msg-row ai">
+        <div class="msg-avatar ai">🤖</div>
+        <div class="msg-content">
+          <div class="msg-bubble ai">
+            Halo! Aku AI Financial Advisor duit.io. Aku punya akses ke data keuangan kamu — dan sekarang bisa juga <strong>melakukan aksi</strong> langsung di sini.<br><br>
+            Coba: <em>"ubah saldo BCA jadi 100rb"</em>, <em>"tambah pengeluaran 50rb buat makan di GoPay"</em>, atau <em>"hapus transaksi terakhir"</em>. Setiap aksi akan minta konfirmasi sebelum dijalankan.
+          </div>
+        </div>
+      </div>`;
+  }
+  return advisorHistory.map((m, i) => msgHtml(m, i)).join('');
+}
+
+function refreshAdvisorMessages() {
+  const msgs = document.getElementById('advisor-msgs');
+  if (!msgs) return;
+  msgs.innerHTML = renderMessages();
+  scrollAdvisorToBottom();
+}
+
+function msgHtml(m, msgIdx) {
   const isAI = m.role === 'assistant';
   const formattedContent = isAI
-    ? m.content
+    ? (m.content || '')
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
         .replace(/\*(.*?)\*/g, '<em>$1</em>')
         .replace(/^- (.+)$/gm, '<li>$1</li>')
         .replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>')
         .replace(/\n\n/g, '<br><br>')
         .replace(/\n/g, '<br>')
-    : m.content;
+    : (m.content || '');
+
+  const bubble = formattedContent
+    ? `<div class="msg-bubble ${isAI?'ai':'user'}">${formattedContent}</div>`
+    : '';
+
+  let cardsHtml = '';
+  if (m.actions && m.actions.length) {
+    cardsHtml = m.actions.map((a, aIdx) => actionCardHtml(a, msgIdx, aIdx)).join('');
+  }
+
   return `
     <div class="msg-row ${isAI?'ai':'user'}">
       <div class="msg-avatar ${isAI?'ai':'user'}">${isAI?'🤖':'👤'}</div>
-      <div class="msg-bubble ${isAI?'ai':'user'}">${formattedContent}</div>
+      <div class="msg-content">
+        ${bubble}
+        ${cardsHtml}
+      </div>
     </div>`;
+}
+
+function actionCardHtml(action, msgIdx, aIdx) {
+  const desc = describeAction(action);
+  const status = action.status || 'pending';
+  const linesHtml = desc.lines.map(l => `<div class="action-card-line">${escapeHtml(l)}</div>`).join('');
+
+  let buttonsHtml = '';
+  let statusBadge = '';
+  if (status === 'pending') {
+    const isInvalid = desc.warning === 'invalid';
+    buttonsHtml = `
+      <div class="action-card-actions">
+        <button class="btn btn-ghost btn-sm" onclick="advisorCancelAction(${msgIdx},${aIdx})">Batal</button>
+        <button class="btn ${desc.warning === 'destructive' ? 'btn-danger' : 'btn-accent'} btn-sm" ${isInvalid ? 'disabled' : ''} onclick="advisorConfirmAction(${msgIdx},${aIdx})">
+          ${desc.warning === 'destructive' ? '🗑️ Hapus' : '✓ Konfirmasi'}
+        </button>
+      </div>`;
+    if (isInvalid) {
+      statusBadge = `<div class="action-card-warn">⚠️ Tidak bisa dijalankan</div>`;
+    }
+  } else if (status === 'confirmed') {
+    statusBadge = `<div class="action-card-status confirmed">✓ ${action.result || 'Berhasil'}</div>`;
+  } else if (status === 'cancelled') {
+    statusBadge = `<div class="action-card-status cancelled">✗ Dibatalkan</div>`;
+  } else if (status === 'failed') {
+    statusBadge = `<div class="action-card-status failed">✗ Gagal: ${action.error || 'Error tidak diketahui'}</div>`;
+  }
+
+  return `
+    <div class="action-card ${status}" data-msg="${msgIdx}" data-action="${aIdx}">
+      <div class="action-card-head">
+        <span class="action-card-icon">${desc.icon}</span>
+        <span class="action-card-title">${desc.title}</span>
+      </div>
+      <div class="action-card-body">${linesHtml}</div>
+      ${statusBadge}
+      ${buttonsHtml}
+    </div>`;
+}
+
+function escapeHtml(s) {
+  return String(s || '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+async function advisorConfirmAction(msgIdx, aIdx) {
+  const msg = advisorHistory[msgIdx];
+  if (!msg || !msg.actions) return;
+  const action = msg.actions[aIdx];
+  if (!action || action.status !== 'pending') return;
+
+  // Mark as running (intermediate state) — show in card
+  action.status = 'running';
+  refreshAdvisorMessages();
+
+  try {
+    const result = await executeAction(action);
+    action.status = 'confirmed';
+    action.result = result;
+    showToast(result + ' ✓');
+  } catch (e) {
+    action.status = 'failed';
+    action.error = e.message || String(e);
+    showToast('Aksi gagal: ' + action.error, 'error');
+  }
+  refreshAdvisorMessages();
+}
+
+function advisorCancelAction(msgIdx, aIdx) {
+  const msg = advisorHistory[msgIdx];
+  if (!msg || !msg.actions) return;
+  const action = msg.actions[aIdx];
+  if (!action || action.status !== 'pending') return;
+  action.status = 'cancelled';
+  refreshAdvisorMessages();
 }
 
 function scrollAdvisorToBottom() {
@@ -192,18 +326,22 @@ async function sendAdvisorMsg(text) {
   const chips = document.getElementById('quick-chips');
   if (chips) chips.style.display = 'none';
 
-  // Add user message
+  // Add user message and re-render
   advisorHistory.push({ role: 'user', content: text });
+  refreshAdvisorMessages();
+
+  // Show typing indicator
+  const msgs = document.getElementById('advisor-msgs');
   if (msgs) {
-    msgs.innerHTML += msgHtml({ role: 'user', content: text });
-    // Show typing indicator
-    msgs.innerHTML += `
-      <div class="msg-row" id="typing-indicator">
+    msgs.insertAdjacentHTML('beforeend', `
+      <div class="msg-row ai" id="typing-indicator">
         <div class="msg-avatar ai">🤖</div>
-        <div class="msg-bubble ai typing">
-          <div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>
+        <div class="msg-content">
+          <div class="msg-bubble ai typing">
+            <div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>
+          </div>
         </div>
-      </div>`;
+      </div>`);
     scrollAdvisorToBottom();
   }
 
@@ -214,31 +352,57 @@ async function sendAdvisorMsg(text) {
   try {
     const systemPrompt = buildFinancialContext();
     // Build full prompt with history for the proxy
-    const historyText = advisorHistory.slice(0,-1).map(m=>
-      (m.role==='user'?'User: ':'Assistant: ')+m.content
-    ).join('\n\n');
+    // For prior assistant turns, include action outcomes so AI knows what happened
+    const historyText = advisorHistory.slice(0,-1).map(m => {
+      if (m.role === 'user') return 'User: ' + m.content;
+      let line = 'Assistant: ' + (m.content || '');
+      if (m.actions && m.actions.length) {
+        const outcomes = m.actions.map(a => {
+          if (a.status === 'confirmed') return `[Aksi dijalankan: ${a.type} → ${a.result}]`;
+          if (a.status === 'cancelled') return `[Aksi ${a.type} dibatalkan oleh pengguna]`;
+          if (a.status === 'failed')    return `[Aksi ${a.type} gagal: ${a.error}]`;
+          return `[Aksi ${a.type} menunggu konfirmasi]`;
+        }).join(' ');
+        line += '\n' + outcomes;
+      }
+      return line;
+    }).join('\n\n');
+
     const fullPrompt = systemPrompt + '\n\n' +
       (historyText ? 'RIWAYAT PERCAKAPAN:\n'+historyText+'\n\n' : '') +
       'User: ' + text;
 
     const reply = await callAI('financial_advisor', fullPrompt) || 'Maaf, tidak ada respons.';
-    advisorHistory.push({ role: 'assistant', content: reply });
 
-    // Replace typing indicator with actual response
-    const typing = document.getElementById('typing-indicator');
-    if (typing) typing.outerHTML = msgHtml({ role: 'assistant', content: reply });
+    // Parse out actions from reply
+    const { cleanText, actions } = parseActions(reply);
 
-    scrollAdvisorToBottom();
-  } catch(e) {
-    if (typing) typing.outerHTML = msgHtml({
+    advisorHistory.push({
       role: 'assistant',
-      content: `Maaf, terjadi error: ${e.message}. Coba lagi ya.`
+      content: cleanText || (actions.length ? 'Aksi siap dijalankan:' : 'Maaf, tidak ada respons.'),
+      actions: actions.length ? actions : undefined,
     });
+
+    // Remove typing indicator and re-render
+    const typing = document.getElementById('typing-indicator');
+    if (typing) typing.remove();
+    refreshAdvisorMessages();
+
+  } catch(e) {
+    const typing = document.getElementById('typing-indicator');
+    if (typing) typing.remove();
+    advisorHistory.push({
+      role: 'assistant',
+      content: `Maaf, terjadi error: ${e.message}. Coba lagi ya.`,
+    });
+    refreshAdvisorMessages();
     showToast('Error: ' + e.message, 'error');
   } finally {
     advisorTyping = false;
-    if (sendBtn) sendBtn.disabled = false;
-    if (input) input.focus();
+    const sendBtn2 = document.getElementById('advisor-send-btn');
+    if (sendBtn2) sendBtn2.disabled = false;
+    const input2 = document.getElementById('advisor-input');
+    if (input2) input2.focus();
   }
 }
 
@@ -247,10 +411,10 @@ function clearAdvisorHistory() {
   navigate('advisor');
 }
 
-
-
 export { renderAdvisor, sendAdvisorMsg, clearAdvisorHistory }
 
 window.sendAdvisorMsg = sendAdvisorMsg
 window.triggerAdvisorSend = triggerAdvisorSend
 window.clearAdvisorHistory = clearAdvisorHistory
+window.advisorConfirmAction = advisorConfirmAction
+window.advisorCancelAction = advisorCancelAction
