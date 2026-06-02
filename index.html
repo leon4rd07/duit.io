@@ -171,19 +171,6 @@
 <!-- TOAST -->
 <div id="toast"></div>
 
-<script>
-// ===== CONFIG =====
-const SCHEMA_SQL = `-- duit.io Database Schema
--- Run this in Supabase SQL Editor
-
--- Enable RLS
-create extension if not exists "uuid-ossp";
-
--- Accounts
-create table if not exists accounts (
-  id uuid primary key default uuid_generate_v4(),
-  user_id
-
 <!-- ACCOUNT MODAL -->
 <div class="sheet-overlay" id="account-modal">
   <div class="sheet">
