@@ -64,6 +64,10 @@ window.clearScanError = clearScanError
 
 // ── Scan result feedback modal ────────────────────────────────────────
 function showScanResultModal(status, message, data) {
+  // Ensure message is always a readable string
+  if (message && typeof message === 'object') {
+    message = message.message || JSON.stringify(message)
+  }
   const modal = document.getElementById('scan-result-modal')
   if (!modal) {
     // Fallback to toast if modal element missing
@@ -255,7 +259,6 @@ Jika bukan struk/nota, set is_receipt=false.`
     try {
       result = await callAI('scan_receipt', prompt, state.scanImageBase64Full, state.scanImageMimeType)
     } catch (apiErr) {
-      // Server / network error — distinguish from "unreadable receipt"
       state.scanIsAnalyzing = false
       navigate('scan')
       showScanResultModal('system_error', apiErr.message)

@@ -73,6 +73,7 @@ export default async function handler(req, res) {
   }
 
   let lastErr = '';
+  let lastDetail = '';
   for (const model of MODELS) {
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
@@ -89,19 +90,27 @@ export default async function handler(req, res) {
         const d = await r.json();
         const text = d.candidates?.[0]?.content?.parts?.[0]?.text || '';
         if (text) return res.status(200).json({ text, model });
-        lastErr = `${model}: empty response`;
+        // Empty — maybe safety block
+        const finishReason = d.candidates?.[0]?.finishReason || 'unknown';
+        lastErr = `${model}: empty (${finishReason})`;
+        lastDetail = JSON.stringify(d).slice(0, 200);
       } else {
-        lastErr = `${model}: ${r.status}`;
         const errText = await r.text();
+        lastErr = `${model}: HTTP ${r.status}`;
+        lastDetail = errText.slice(0, 300);
         console.error(`${model}: ${r.status} ${errText}`);
-        // If model not found, reset cache so next call re-discovers
         if (r.status === 404) _cachedModels = null;
       }
     } catch (e) {
       lastErr = `${model}: ${e.message}`;
+      lastDetail = e.stack?.slice(0, 200) || '';
       console.error(`${model} error:`, e.message);
     }
   }
 
-  return res.status(502).json({ error: `Semua model gagal (${lastErr}). Models dicoba: ${MODELS.slice(0,3).join(', ')}` });
+  return res.status(502).json({
+    error: `AI gagal memproses. ${lastErr}`,
+    detail: lastDetail,
+    triedModels: MODELS.slice(0, 5),
+  });
 };

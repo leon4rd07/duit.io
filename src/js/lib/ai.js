@@ -26,8 +26,19 @@ export async function callAI(task, prompt, imageData = null, mimeType = null) {
   })
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }))
-    throw new Error(err.error || `HTTP ${res.status}`)
+    let errMsg = `HTTP ${res.status}`
+    try {
+      const err = await res.json()
+      if (typeof err.error === 'string') errMsg = err.error
+      else if (err.error && typeof err.error === 'object') errMsg = JSON.stringify(err.error)
+      else if (err.message) errMsg = err.message
+      else errMsg = JSON.stringify(err)
+      // Append detail if present (for debugging)
+      if (err.detail) errMsg += ` — ${err.detail}`
+    } catch {
+      try { errMsg = await res.text() } catch {}
+    }
+    throw new Error(errMsg)
   }
 
   const data = await res.json()
