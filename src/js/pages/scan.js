@@ -37,14 +37,6 @@ function renderScan(area, actions) {
       <h2 class="scan-intro-title">Scan Struk</h2>
       <p class="scan-intro-desc">Pilih cara untuk memasukkan foto struk. Setelah dipilih, sistem akan otomatis membaca dan mengisi detail transaksi.</p>
 
-      ${state.lastScanError ? `
-        <div style="background:var(--red-dim);border:1px solid var(--red);color:var(--red);padding:12px;border-radius:10px;margin-bottom:16px;font-size:13px;text-align:left">
-          <strong>⚠️ Error sebelumnya:</strong><br>
-          ${state.lastScanError}
-          <button class="btn btn-ghost btn-sm" style="margin-top:8px;font-size:11px" onclick="clearScanError()">Tutup</button>
-        </div>
-      ` : ''}
-
       <div class="scan-option-grid">
         <button class="scan-option" onclick="openScanCamera()">
           <div class="scan-option-icon">📸</div>
@@ -69,6 +61,108 @@ function clearScanError() {
   navigate('scan')
 }
 window.clearScanError = clearScanError
+
+// ── Scan result feedback modal ────────────────────────────────────────
+function showScanResultModal(status, message, data) {
+  const modal = document.getElementById('scan-result-modal')
+  if (!modal) {
+    // Fallback to toast if modal element missing
+    if (status === 'success') showToast('Struk berhasil dibaca ✓')
+    else showToast(message || 'Scan gagal', 'error')
+    return
+  }
+
+  const configs = {
+    success: {
+      icon: '✅',
+      title: 'Struk Berhasil Dibaca!',
+      color: 'var(--green)',
+      body: data ? `
+        <div style="text-align:center;margin:12px 0">
+          <div style="font-size:14px;color:var(--text2)">${data.merchant || 'Toko'}</div>
+          <div style="font-size:28px;font-weight:800;color:var(--green)">${fmt(data.total || 0)}</div>
+          ${data.category ? `<div style="font-size:12px;color:var(--text3);margin-top:4px">📁 ${data.category}</div>` : ''}
+          ${data.items?.length ? `<div style="font-size:12px;color:var(--text3);margin-top:4px">${data.items.length} item terdeteksi</div>` : ''}
+        </div>
+      ` : '',
+      actions: `
+        <button class="btn btn-ghost" onclick="closeScanModal()">Tutup</button>
+        <button class="btn btn-accent" onclick="closeScanModal()">Lanjut isi transaksi →</button>
+      `
+    },
+    unclear: {
+      icon: '🔍',
+      title: 'Struk Kurang Jelas',
+      color: 'var(--amber)',
+      body: `<p style="color:var(--text2);font-size:13px;line-height:1.5;text-align:center;margin:12px 0">${message}</p>
+        <div style="background:var(--bg3);border-radius:10px;padding:12px;font-size:12px;color:var(--text2)">
+          💡 <strong>Tips foto struk:</strong><br>
+          • Pastikan pencahayaan cukup terang<br>
+          • Struk dalam posisi lurus & rata<br>
+          • Hindari bayangan & pantulan cahaya<br>
+          • Seluruh struk masuk dalam frame
+        </div>`,
+      actions: `
+        <button class="btn btn-ghost" onclick="closeScanModal()">Tutup</button>
+        <button class="btn btn-accent" onclick="closeScanModal();clearScan()">Coba Lagi</button>
+      `
+    },
+    not_receipt: {
+      icon: '🧾',
+      title: 'Bukan Struk?',
+      color: 'var(--amber)',
+      body: `<p style="color:var(--text2);font-size:13px;line-height:1.5;text-align:center;margin:12px 0">${message}</p>
+        <div style="background:var(--bg3);border-radius:10px;padding:12px;font-size:12px;color:var(--text2)">
+          Pastikan gambar yang difoto adalah struk belanja atau nota dengan total harga yang jelas terlihat.
+        </div>`,
+      actions: `
+        <button class="btn btn-ghost" onclick="closeScanModal()">Tutup</button>
+        <button class="btn btn-accent" onclick="closeScanModal();clearScan()">Foto Ulang</button>
+      `
+    },
+    system_error: {
+      icon: '⚠️',
+      title: 'Gagal Terhubung ke AI',
+      color: 'var(--red)',
+      body: `<p style="color:var(--text2);font-size:13px;line-height:1.5;text-align:center;margin:12px 0">
+          Terjadi masalah saat memproses. Ini bukan masalah dari foto kamu.
+        </p>
+        <div style="background:var(--bg3);border-radius:10px;padding:12px;font-size:11px;color:var(--text3);font-family:monospace;word-break:break-word">
+          ${message || 'Unknown error'}
+        </div>
+        <p style="font-size:12px;color:var(--text2);margin-top:8px;text-align:center">Coba lagi beberapa saat. Jika terus terjadi, layanan AI mungkin sedang sibuk.</p>`,
+      actions: `
+        <button class="btn btn-ghost" onclick="closeScanModal()">Tutup</button>
+        <button class="btn btn-accent" onclick="closeScanModal();doScan()">Coba Lagi</button>
+      `
+    },
+  }
+
+  const c = configs[status] || configs.system_error
+
+  modal.innerHTML = `
+    <div class="sheet" style="max-width:400px">
+      <div class="sheet-handle"></div>
+      <div style="text-align:center;padding:8px 0">
+        <div style="font-size:48px;margin-bottom:8px">${c.icon}</div>
+        <div style="font-size:18px;font-weight:700;color:${c.color}">${c.title}</div>
+      </div>
+      <div class="sheet-body" style="padding-top:0">
+        ${c.body}
+        <div class="sheet-actions" style="margin-top:16px">
+          ${c.actions}
+        </div>
+      </div>
+    </div>
+  `
+  modal.classList.add('open')
+}
+
+function closeScanModal() {
+  document.getElementById('scan-result-modal')?.classList.remove('open')
+}
+window.showScanResultModal = showScanResultModal
+window.closeScanModal = closeScanModal
 
 // ── Camera option ────────────────────────────────────────────────────
 function openScanCamera() {
@@ -141,7 +235,7 @@ async function doScan() {
     return
   }
 
-  state.lastScanError = null   // clear any old error
+  state.lastScanError = null
   state.scanIsAnalyzing = true
   navigate('scan')
 
@@ -157,7 +251,16 @@ async function doScan() {
 }
 Jika bukan struk/nota, set is_receipt=false.`
 
-    const result = await callAI('scan_receipt', prompt, state.scanImageBase64Full, state.scanImageMimeType)
+    let result
+    try {
+      result = await callAI('scan_receipt', prompt, state.scanImageBase64Full, state.scanImageMimeType)
+    } catch (apiErr) {
+      // Server / network error — distinguish from "unreadable receipt"
+      state.scanIsAnalyzing = false
+      navigate('scan')
+      showScanResultModal('system_error', apiErr.message)
+      return
+    }
 
     // Try to extract JSON
     let parsed
@@ -165,22 +268,29 @@ Jika bukan struk/nota, set is_receipt=false.`
       const jsonMatch = result.match(/\{[\s\S]*\}/)
       parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(result)
     } catch (e) {
-      throw new Error('Gagal membaca hasil. Coba foto ulang dengan lebih jelas.')
+      state.scanIsAnalyzing = false
+      navigate('scan')
+      showScanResultModal('unclear', 'Hasil AI tidak bisa dibaca. Coba foto lebih jelas & terang.')
+      return
     }
 
-    if (parsed.is_receipt === false) {
-      throw new Error('Gambar ini bukan struk/nota.')
+    if (parsed.is_receipt === false || !parsed.total) {
+      state.scanIsAnalyzing = false
+      navigate('scan')
+      showScanResultModal('not_receipt', 'Gambar ini sepertinya bukan struk/nota, atau total tidak terbaca.')
+      return
     }
 
+    // Success!
     state.lastScanResult = parsed
     state.scanIsAnalyzing = false
     state.selectedScanAccountId = state.accounts[0]?.id || ''
     navigate('scan')
+    showScanResultModal('success', null, parsed)
   } catch (err) {
     state.scanIsAnalyzing = false
-    state.lastScanError = err.message || String(err)
-    showToast('Gagal scan: ' + state.lastScanError, 'error')
     navigate('scan')
+    showScanResultModal('system_error', err.message || String(err))
   }
 }
 
