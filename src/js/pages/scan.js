@@ -141,6 +141,7 @@ async function doScan() {
     return
   }
 
+  state.lastScanError = null   // clear any old error
   state.scanIsAnalyzing = true
   navigate('scan')
 
