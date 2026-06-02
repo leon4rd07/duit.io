@@ -331,20 +331,13 @@ function showScanResult(area) {
 
       <div class="field" style="margin-top:16px">
         <label>Simpan ke Rekening</label>
-        <div class="scan-acct-grid">
-          ${state.accounts.map(a => `
-            <div class="scan-acct-option ${a.id===state.selectedScanAccountId?'selected':''}"
-                 onclick="selectScanAccount('${a.id}')"
-                 style="${a.id===state.selectedScanAccountId?'border-color:'+(a.color||'var(--accent)'):''}">
-              <div class="scan-acct-icon">${a.icon || BANK_ICONS[a.bank] || '💳'}</div>
-              <div class="scan-acct-info">
-                <div class="scan-acct-name">${a.name}</div>
-                <div class="scan-acct-bal">${fmtShort(a.balance)}</div>
-              </div>
-              ${a.id===state.selectedScanAccountId?'<div class="scan-acct-check">✓</div>':''}
-            </div>
-          `).join('')}
-        </div>
+        <button type="button" class="acct-picker-btn" onclick="openScanAccountPicker()">
+          <span>${(() => {
+            const a = state.accounts.find(x => x.id === state.selectedScanAccountId);
+            return a ? `${a.icon || BANK_ICONS[a.bank] || '💳'} ${a.name} (${fmtShort(a.balance)})` : 'Pilih rekening';
+          })()}</span>
+          <span style="color:var(--text3)">›</span>
+        </button>
       </div>
 
       <div style="display:flex;gap:10px;margin-top:14px">
@@ -352,11 +345,9 @@ function showScanResult(area) {
         <button class="btn btn-accent" style="flex:2" onclick="saveScanTx()">💾 Simpan Transaksi</button>
       </div>
 
-      ${r.items && r.items.length > 1 ? `
-        <button class="btn btn-ghost" style="width:100%;margin-top:8px" onclick="goSplitFromScan()">
-          🍽️ Lanjut ke Split Bill
-        </button>
-      ` : ''}
+      <button class="btn btn-ghost" style="width:100%;margin-top:8px" onclick="goSplitFromScan()">
+        🍽️ Bagi dengan teman (Split Bill)
+      </button>
     </div>
   `
 }
@@ -366,6 +357,15 @@ function selectScanAccount(id) {
   navigate('scan')
 }
 window.selectScanAccount = selectScanAccount
+
+function openScanAccountPicker() {
+  if (window.openAccountPicker) {
+    // Reuse the shared 2-step picker with 'scan' target
+    window._scanPickerActive = true
+    window.openAccountPicker('scan')
+  }
+}
+window.openScanAccountPicker = openScanAccountPicker
 
 async function saveScanTx() {
   const r = state.lastScanResult
