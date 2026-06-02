@@ -1,5 +1,5 @@
 // api/health.js — diagnostic endpoint (safe, doesn't expose the key)
-module.exports = function handler(req, res) {
+export default function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   const key = process.env.GEMINI_API_KEY;
   res.status(200).json({

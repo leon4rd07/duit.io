@@ -14,7 +14,7 @@ function checkRate(ip) {
   return true;
 }
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   const origin = req.headers.origin || '';
   const allowedOrigin = origin.endsWith('.vercel.app') || origin.includes('localhost') ? origin : '*';
   res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
