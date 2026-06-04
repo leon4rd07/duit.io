@@ -377,6 +377,120 @@
   </div>
 </div>
 
+<!-- WISHLIST ADD/EDIT MODAL -->
+<div class="sheet-overlay" id="wishlist-modal">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head">
+      <div class="sheet-title" id="wishlist-modal-title">Tambah Wishlist</div>
+      <button class="sheet-close" onclick="closeSheet('wishlist-modal')">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div class="field">
+        <label>Nama Barang</label>
+        <input type="text" id="wl-name" placeholder="mis. iPhone 15, Sepatu Nike, Liburan Bali..."/>
+      </div>
+      <div class="field">
+        <label>Estimasi Harga (Rp)</label>
+        <input type="text" inputmode="numeric" class="money-input" id="wl-price" placeholder="0"/>
+      </div>
+      <div class="field">
+        <label>Prioritas</label>
+        <div class="type-toggle" id="wl-priority-toggle" style="margin-bottom:0">
+          <div class="type-btn" onclick="setWishlistPriority(1)">🔥 Tinggi</div>
+          <div class="type-btn" onclick="setWishlistPriority(2)">⭐ Sedang</div>
+          <div class="type-btn" onclick="setWishlistPriority(3)">⬇️ Rendah</div>
+        </div>
+      </div>
+      <div class="field">
+        <label>Catatan (opsional)</label>
+        <input type="text" id="wl-note" placeholder="mis. warna hitam, ukuran 42, dst..."/>
+      </div>
+      <div class="field">
+        <label>Link Produk (opsional)</label>
+        <input type="url" id="wl-url" placeholder="https://..."/>
+      </div>
+      <div class="field">
+        <label>Target Tanggal Beli (opsional)</label>
+        <input type="date" id="wl-target-date"/>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">Kalau diisi, kami hitung berapa harus nabung tiap hari</div>
+      </div>
+      <div class="field">
+        <label>Rekening Tabungan (opsional)</label>
+        <select id="wl-account">
+          <option value="">— Tidak ada —</option>
+        </select>
+      </div>
+      <div class="sheet-actions">
+        <button class="btn btn-ghost" onclick="closeSheet('wishlist-modal')">Batal</button>
+        <button class="btn btn-danger" id="wl-delete-btn" style="display:none" onclick="deleteWishlistFromModal()">Hapus</button>
+        <button class="btn btn-accent" onclick="submitWishlistModal()" id="wl-save-btn">Simpan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- WISHLIST MARK AS BOUGHT MODAL -->
+<div class="sheet-overlay" id="wishlist-buy-modal">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head">
+      <div class="sheet-title" id="wl-buy-title">Tandai Sudah Dibeli</div>
+      <button class="sheet-close" onclick="closeSheet('wishlist-buy-modal')">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div style="background:var(--bg3);padding:12px;border-radius:8px;margin-bottom:12px;font-size:13px;color:var(--text2)">
+        Aksi ini akan otomatis membuat transaksi pengeluaran di rekening yang dipilih.
+      </div>
+      <div class="field">
+        <label>Harga Beli (Rp)</label>
+        <input type="text" inputmode="numeric" class="money-input" id="wl-buy-amount" placeholder="0"/>
+      </div>
+      <div class="field">
+        <label>Bayar dari Rekening</label>
+        <select id="wl-buy-account"></select>
+      </div>
+      <div class="field">
+        <label>Kategori</label>
+        <select id="wl-buy-category"></select>
+      </div>
+      <div class="field">
+        <label>Catatan</label>
+        <input type="text" id="wl-buy-note" placeholder="Wishlist: ..."/>
+      </div>
+      <div class="sheet-actions">
+        <button class="btn btn-ghost" onclick="closeSheet('wishlist-buy-modal')">Batal</button>
+        <button class="btn btn-accent" onclick="submitMarkBoughtWishlist()">✓ Konfirmasi Beli</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- WISHLIST ADD SAVINGS MODAL -->
+<div class="sheet-overlay" id="wishlist-save-modal">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head">
+      <div class="sheet-title" id="wl-save-title">Tambah Tabungan</div>
+      <button class="sheet-close" onclick="closeSheet('wishlist-save-modal')">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div style="background:var(--bg3);padding:12px;border-radius:8px;margin-bottom:12px;font-size:13px;color:var(--text2)">
+        Catat berapa yang sudah ditabung untuk target ini. <strong>Aksi ini tidak mengubah saldo rekening</strong> — cuma update progress.
+      </div>
+      <div id="wl-save-progress" style="font-size:13px;color:var(--text2);margin-bottom:10px"></div>
+      <div class="field">
+        <label>Jumlah Tabungan (Rp)</label>
+        <input type="text" inputmode="numeric" class="money-input" id="wl-save-amount" placeholder="0"/>
+      </div>
+      <div class="sheet-actions">
+        <button class="btn btn-ghost" onclick="closeSheet('wishlist-save-modal')">Batal</button>
+        <button class="btn btn-accent" onclick="submitSaveToWishlist()">Tambah</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- CONFIRM MODAL -->
 <div class="sheet-overlay confirm-sheet" id="confirm-modal">
   <div class="sheet" style="max-width:400px">

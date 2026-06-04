@@ -24,7 +24,7 @@ export const signOut = () => db.auth.signOut()
 
 export async function loadAllData() {
   const uid = state.currentUser.id
-  const [ac, tx, bg, rc, db_] = await Promise.all([
+  const [ac, tx, bg, rc, db_, wl] = await Promise.all([
     db.from('accounts').select('*').eq('user_id', uid).order('created_at'),
     db.from('transactions').select('*').eq('user_id', uid)
       .order('date', { ascending: false })
@@ -32,12 +32,14 @@ export async function loadAllData() {
     db.from('budgets').select('*').eq('user_id', uid),
     db.from('recurring').select('*').eq('user_id', uid).order('created_at'),
     db.from('debts').select('*').eq('user_id', uid).order('created_at', { ascending: false }),
+    db.from('wishlist').select('*').eq('user_id', uid).order('created_at', { ascending: false }),
   ])
   state.accounts     = ac.data  || []
   state.transactions = tx.data  || []
   state.budgets      = bg.data  || []
   state.recurring    = rc.data  || []
   state.debts        = db_.data || []
+  state.wishlist     = wl?.error ? [] : (wl?.data || [])
 }
 
 // ── Accounts ─────────────────────────────────────────────────────────
@@ -181,4 +183,73 @@ export async function updateDebt(id, payload) {
   await db.from('debts').update(payload).eq('id', id)
   const d = state.debts.find(x => x.id === id)
   if (d) Object.assign(d, payload)
+}
+
+// ── Wishlist ─────────────────────────────────────────────────────────────
+
+export async function createWishlist(payload) {
+  const { data, error } = await db.from('wishlist')
+    .insert([{ user_id: state.currentUser.id, ...payload }])
+    .select().single()
+  if (error) throw error
+  state.wishlist.unshift(data)
+  return data
+}
+
+export async function updateWishlist(id, payload) {
+  const { error } = await db.from('wishlist').update(payload).eq('id', id)
+  if (error) throw error
+  const w = state.wishlist.find(x => x.id === id)
+  if (w) Object.assign(w, payload)
+}
+
+export async function deleteWishlist(id) {
+  const { error } = await db.from('wishlist').delete().eq('id', id)
+  if (error) throw error
+  state.wishlist = state.wishlist.filter(w => w.id !== id)
+}
+
+/**
+ * Add savings progress to a wishlist item.
+ * This is purely a tracker — it does NOT touch any account balance.
+ * Users decide themselves which rekening they're nabung at.
+ */
+export async function addSavingsToWishlist(id, amount) {
+  const w = state.wishlist.find(x => x.id === id)
+  if (!w) throw new Error('Wishlist tidak ditemukan')
+  const newSaved = Number(w.saved_amount || 0) + Number(amount)
+  await updateWishlist(id, { saved_amount: newSaved })
+  return newSaved
+}
+
+/**
+ * Mark a wishlist item as bought.
+ * Creates an expense transaction and links it via bought_tx_id.
+ */
+export async function markWishlistBought(id, opts) {
+  const w = state.wishlist.find(x => x.id === id)
+  if (!w) throw new Error('Wishlist tidak ditemukan')
+  const { accountId, amount, category, note } = opts || {}
+  if (!accountId) throw new Error('Rekening harus dipilih')
+  const finalAmount = Number(amount) || Number(w.price) || 0
+  if (finalAmount <= 0) throw new Error('Jumlah pembelian harus > 0')
+
+  // Create transaction
+  const tx = await createTransaction({
+    type: 'expense',
+    amount: finalAmount,
+    category: category || '🛍️ Belanja',
+    account_id: accountId,
+    note: note || `Wishlist: ${w.name}`,
+    date: new Date().toISOString().split('T')[0],
+  })
+
+  // Update wishlist
+  await updateWishlist(id, {
+    status: 'bought',
+    bought_at: new Date().toISOString(),
+    bought_amount: finalAmount,
+    bought_tx_id: tx.id,
+  })
+  return tx
 }

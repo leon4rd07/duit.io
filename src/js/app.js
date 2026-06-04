@@ -22,6 +22,7 @@ import { renderTransfer }     from './pages/transfer.js'
 import { renderBudget }       from './pages/budget.js'
 import { renderRecurring }    from './pages/recurring.js'
 import { renderDebts }        from './pages/debts.js'
+import { renderWishlist }     from './pages/wishlist.js'
 import { renderScan }         from './pages/scan.js'
 import { renderSplitBill }    from './pages/splitbill.js'
 import { renderBills }        from './pages/bills.js'
@@ -40,6 +41,7 @@ registerPage('transfer',     renderTransfer)
 registerPage('budget',       renderBudget)
 registerPage('recurring',    renderRecurring)
 registerPage('debts',        renderDebts)
+registerPage('wishlist',     renderWishlist)
 registerPage('scan',         renderScan)
 registerPage('splitbill',    renderSplitBill)
 registerPage('bills',        renderBills)

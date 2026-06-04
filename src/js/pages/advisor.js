@@ -62,6 +62,34 @@ function buildFinancialContext() {
     return `[${shortId}] ${d.contact_name} ${dir} Rp ${Math.round(d.remaining).toLocaleString('id-ID')}`;
   }).join(' | ') || 'Tidak ada';
 
+  // Active wishlist items with short IDs and daily savings calc
+  const planningWl = (state.wishlist || []).filter(w => w.status === 'planning');
+  const totalWlNeeded = planningWl.reduce((s,w) => s + Number(w.price), 0);
+  const totalWlSaved  = planningWl.reduce((s,w) => s + Number(w.saved_amount||0), 0);
+  const wishlistList = planningWl.slice(0, 15).map(w => {
+    const shortId = (w.id||'').substring(0, 8);
+    const saved = Number(w.saved_amount||0);
+    const price = Number(w.price);
+    const remaining = Math.max(0, price - saved);
+    const pct = price > 0 ? Math.round((saved/price)*100) : 0;
+    const prLabel = {1:'tinggi', 2:'sedang', 3:'rendah'}[w.priority||2];
+    let dailyInfo = '';
+    if (w.target_date) {
+      const today = new Date(); today.setHours(0,0,0,0);
+      const target = new Date(w.target_date); target.setHours(0,0,0,0);
+      const days = Math.ceil((target - today)/86400000);
+      if (days > 0 && remaining > 0) {
+        const daily = remaining / days;
+        dailyInfo = ` target ${w.target_date} (${days} hari, butuh Rp ${Math.round(daily).toLocaleString('id-ID')}/hari)`;
+      } else if (days <= 0 && remaining > 0) {
+        dailyInfo = ` target ${w.target_date} ⚠️ LEWAT`;
+      } else if (remaining <= 0) {
+        dailyInfo = ' 🎉 SIAP DIBELI';
+      }
+    }
+    return `[${shortId}] "${w.name}" Rp ${Math.round(price).toLocaleString('id-ID')} prio ${prLabel} progres ${pct}%${dailyInfo}`;
+  }).join('\n') || '(tidak ada wishlist aktif)';
+
   // 6-month net savings
   const sixMonthNet = [];
   for(let i=5;i>=0;i--){
@@ -102,12 +130,16 @@ DATA KEUANGAN REAL-TIME (${now.toLocaleDateString('id-ID',{month:'long',year:'nu
 - Hutang saya: Rp ${Math.round(totalOwe).toLocaleString('id-ID')}
 - Piutang (orang lain hutang ke saya): Rp ${Math.round(totalLent).toLocaleString('id-ID')}
 - Hutang/Piutang aktif (dengan id): ${debtList}
+- Wishlist: ${planningWl.length} item aktif, total butuh Rp ${Math.round(totalWlNeeded).toLocaleString('id-ID')}, sudah ditabung Rp ${Math.round(totalWlSaved).toLocaleString('id-ID')}
 - Net tabungan 6 bulan terakhir: ${sixMonthNet.join(' | ')}
 - Total transaksi tercatat: ${state.transactions.length}
 - Transaksi rutin terdaftar: ${state.recurring.map(r=>r.name).join(', ') || 'Belum ada'}
 
 20 TRANSAKSI TERAKHIR (dengan id pendek untuk referensi hapus):
 ${recentTx || '(belum ada transaksi)'}
+
+WISHLIST AKTIF (dengan id pendek untuk referensi):
+${wishlistList}
 
 KATEGORI PENGELUARAN TERSEDIA: ${flatExpenseCats}
 KATEGORI PEMASUKAN TERSEDIA: ${flatIncomeCats}

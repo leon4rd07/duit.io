@@ -34,6 +34,22 @@ direction: "owe" = saya hutang ke dia, "lent" = dia hutang ke saya.
 7. Catat pelunasan hutang (gunakan id 8-char dari daftar hutang aktif di konteks):
 <ACTION>{"type":"settle_debt","id":"<id pendek>","amount":<jumlah, kosong=lunas penuh>}</ACTION>
 
+8. Tambah ke wishlist:
+<ACTION>{"type":"add_wishlist","name":"<nama barang>","price":<harga>,"priority":1|2|3,"note":"<keterangan opsional>","url":"<link opsional>","target_date":"YYYY-MM-DD opsional (kapan mau beli)"}</ACTION>
+priority: 1=tinggi, 2=sedang (default), 3=rendah. Kalau ada target_date, sistem otomatis hitung berapa harus nabung per hari.
+
+9. Update item wishlist (cuma field yang ingin diubah):
+<ACTION>{"type":"update_wishlist","id":"<id pendek>","price":<opsional>,"priority":<opsional>,"target_date":"YYYY-MM-DD opsional","saved_amount":<opsional, nilai baru>,"note":"<opsional>"}</ACTION>
+
+10. Hapus dari wishlist:
+<ACTION>{"type":"delete_wishlist","id":"<id pendek>"}</ACTION>
+
+11. Tandai item wishlist sudah dibeli (otomatis bikin transaksi pengeluaran):
+<ACTION>{"type":"mark_wishlist_bought","id":"<id pendek>","account":"<nama rekening>","amount":<jumlah, opsional default=harga estimasi>}</ACTION>
+
+12. Tambah tabungan ke item wishlist (cuma update progress, tidak mengubah saldo rekening):
+<ACTION>{"type":"add_savings_wishlist","id":"<id pendek>","amount":<jumlah}</ACTION>
+
 ATURAN PENTING UNTUK AKSI:
 - Selalu balas dulu dengan kalimat singkat menjelaskan apa yang akan dilakukan, BARU lampirkan <ACTION>...</ACTION>
 - JSON di dalam <ACTION> harus valid (tanda kutip ganda, koma benar)
@@ -122,6 +138,22 @@ function findDebtById(shortId) {
   if (!shortId) return null
   const s = String(shortId).toLowerCase()
   return state.debts.find(d => (d.id || '').toLowerCase().startsWith(s))
+}
+
+function findWishlistById(shortId) {
+  if (!shortId) return null
+  const s = String(shortId).toLowerCase()
+  return (state.wishlist || []).find(w => (w.id || '').toLowerCase().startsWith(s))
+}
+
+function findWishlistByName(name) {
+  if (!name) return null
+  const n = String(name).toLowerCase().trim()
+  const wl = state.wishlist || []
+  let m = wl.find(w => (w.name||'').toLowerCase() === n)
+  if (m) return m
+  m = wl.find(w => (w.name||'').toLowerCase().includes(n))
+  return m || null
 }
 
 // ── DESCRIBE (human-readable card titles) ────────────────────────────────
@@ -399,6 +431,83 @@ export async function executeAction(action) {
         state.debts[idx].settled = settled
       }
       return `Pelunasan ${d.contact_name} ${rp(payAmt)} dicatat${settled ? ' (lunas ✓)' : ''}`
+    }
+
+    case 'add_wishlist': {
+      if (!action.name) throw new Error('Nama wishlist wajib diisi')
+      const price = Number(action.price)
+      if (!price || price <= 0) throw new Error('Harga tidak valid')
+      const priority = [1, 2, 3].includes(Number(action.priority)) ? Number(action.priority) : 2
+      const payload = {
+        name: action.name,
+        price,
+        priority,
+        note: action.note || '',
+        url: action.url || '',
+        target_date: action.target_date || null,
+        status: 'planning',
+        saved_amount: 0,
+      }
+      await DB.createWishlist(payload)
+      return `Wishlist "${action.name}" ditambah (${rp(price)})`
+    }
+
+    case 'update_wishlist': {
+      const w = findWishlistById(action.id)
+      if (!w) throw new Error(`Wishlist id "${action.id}" tidak ditemukan`)
+      const payload = {}
+      if (action.price !== undefined) {
+        const p = Number(action.price)
+        if (!isFinite(p) || p < 0) throw new Error('Harga tidak valid')
+        payload.price = p
+      }
+      if (action.priority !== undefined) {
+        const pr = Number(action.priority)
+        if (![1, 2, 3].includes(pr)) throw new Error('Prioritas harus 1, 2, atau 3')
+        payload.priority = pr
+      }
+      if (action.target_date !== undefined) payload.target_date = action.target_date || null
+      if (action.saved_amount !== undefined) {
+        const s = Number(action.saved_amount)
+        if (!isFinite(s) || s < 0) throw new Error('Saved amount tidak valid')
+        payload.saved_amount = s
+      }
+      if (action.note !== undefined) payload.note = action.note || ''
+      if (Object.keys(payload).length === 0) throw new Error('Tidak ada field yang diupdate')
+      await DB.updateWishlist(w.id, payload)
+      return `Wishlist "${w.name}" diupdate`
+    }
+
+    case 'delete_wishlist': {
+      const w = findWishlistById(action.id)
+      if (!w) throw new Error(`Wishlist id "${action.id}" tidak ditemukan`)
+      await DB.deleteWishlist(w.id)
+      return `Wishlist "${w.name}" dihapus`
+    }
+
+    case 'mark_wishlist_bought': {
+      const w = findWishlistById(action.id)
+      if (!w) throw new Error(`Wishlist id "${action.id}" tidak ditemukan`)
+      const acc = findAccountByName(action.account)
+      if (!acc) throw new Error(`Rekening "${action.account}" tidak ditemukan`)
+      const amount = Number(action.amount) > 0 ? Number(action.amount) : Number(w.price)
+      if (!amount || amount <= 0) throw new Error('Jumlah pembelian tidak valid')
+      await DB.markWishlistBought(w.id, {
+        accountId: acc.id,
+        amount,
+        category: '🛍️ Belanja',
+        note: `Wishlist: ${w.name}`,
+      })
+      return `"${w.name}" ditandai sudah dibeli (${rp(amount)} dari ${acc.name})`
+    }
+
+    case 'add_savings_wishlist': {
+      const w = findWishlistById(action.id)
+      if (!w) throw new Error(`Wishlist id "${action.id}" tidak ditemukan`)
+      const amount = Number(action.amount)
+      if (!amount || amount <= 0) throw new Error('Jumlah tabungan harus > 0')
+      const newSaved = await DB.addSavingsToWishlist(w.id, amount)
+      return `Tabungan "${w.name}": +${rp(amount)} (total ${rp(newSaved)})`
     }
 
     default:

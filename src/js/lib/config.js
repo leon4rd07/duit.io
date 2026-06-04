@@ -100,6 +100,7 @@ export const PAGE_TITLES = {
   budget:       'Anggaran',
   recurring:    'Rutin',
   debts:        'Hutang & Piutang',
+  wishlist:     'Wishlist',
   scan:         'Scan Struk',
   splitbill:    'Split Bill',
   bills:        'Tagihan',

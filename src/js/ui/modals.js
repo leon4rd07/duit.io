@@ -1105,3 +1105,265 @@ function setTxDateQuick(offsetOrKey) {
   if (typeof event !== 'undefined' && event.currentTarget) event.currentTarget.classList.add('active');
 }
 window.setTxDateQuick = setTxDateQuick;
+
+// ===== WISHLIST MODALS =====
+let _editingWishlistId = null;
+let _wlPriority = 2;
+let _buyingWishlistId = null;
+let _savingWishlistId = null;
+
+function _populateWishlistAccountSelect(elId, selectedId) {
+  const sel = document.getElementById(elId);
+  if (!sel) return;
+  const accounts = state.accounts || [];
+  const options = ['<option value="">— Tidak ada —</option>']
+    .concat(accounts.map(a => `<option value="${a.id}" ${a.id===selectedId?'selected':''}>${a.name} (${a.bank})</option>`));
+  sel.innerHTML = options.join('');
+}
+
+function _populateBuyAccountSelect(selectedId) {
+  const sel = document.getElementById('wl-buy-account');
+  if (!sel) return;
+  const accounts = state.accounts || [];
+  if (!accounts.length) {
+    sel.innerHTML = '<option value="">Belum ada rekening</option>';
+    return;
+  }
+  sel.innerHTML = accounts.map(a => `<option value="${a.id}" ${a.id===selectedId?'selected':''}>${a.name} (${a.bank})</option>`).join('');
+}
+
+function _populateBuyCategorySelect() {
+  const sel = document.getElementById('wl-buy-category');
+  if (!sel) return;
+  try {
+    const groups = (typeof getCatGroups === 'function') ? getCatGroups('expense') : null;
+    if (!groups) {
+      sel.innerHTML = '<option value="🛍️ Belanja">🛍️ Belanja</option>';
+      return;
+    }
+    const opts = ['<option value="🛍️ Belanja">🛍️ Belanja (default Wishlist)</option>'];
+    Object.entries(groups).forEach(([g, cats]) => {
+      opts.push(`<optgroup label="${g}">`);
+      cats.forEach(c => opts.push(`<option value="${c.icon} ${c.name}">${c.icon} ${c.name}</option>`));
+      opts.push('</optgroup>');
+    });
+    sel.innerHTML = opts.join('');
+  } catch(e) {
+    sel.innerHTML = '<option value="🛍️ Belanja">🛍️ Belanja</option>';
+  }
+}
+
+function _setPriorityBtns(p) {
+  const btns = document.querySelectorAll('#wl-priority-toggle .type-btn');
+  btns.forEach((b, i) => b.classList.remove('active-expense', 'active-income', 'active-transfer'));
+  // Map: 1→red(active-expense), 2→accent(active-transfer), 3→muted(active-income)
+  const classes = ['active-expense', 'active-transfer', 'active-income'];
+  if (btns[p-1]) btns[p-1].classList.add(classes[p-1] || 'active-transfer');
+}
+
+function setWishlistPriority(p) {
+  _wlPriority = p;
+  _setPriorityBtns(p);
+}
+
+function openAddWishlist() {
+  try {
+    _editingWishlistId = null;
+    _wlPriority = 2;
+    const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+    setVal('wl-name', '');
+    setVal('wl-price', '');
+    setVal('wl-note', '');
+    setVal('wl-url', '');
+    setVal('wl-target-date', '');
+    _populateWishlistAccountSelect('wl-account', '');
+    _setPriorityBtns(2);
+    const title = document.getElementById('wishlist-modal-title');
+    if (title) title.textContent = 'Tambah Wishlist';
+    const delBtn = document.getElementById('wl-delete-btn');
+    if (delBtn) delBtn.style.display = 'none';
+    attachMoneyFormatter(document.getElementById('wl-price'));
+    openSheet('wishlist-modal');
+  } catch(err) {
+    console.error('openAddWishlist error:', err);
+    showToast('Gagal membuka modal: ' + err.message, 'error');
+  }
+}
+
+function openEditWishlist(id) {
+  try {
+    const w = state.wishlist.find(x => x.id === id);
+    if (!w) return;
+    _editingWishlistId = id;
+    _wlPriority = w.priority || 2;
+    const setVal = (elId, val) => { const el = document.getElementById(elId); if (el) el.value = val; };
+    setVal('wl-name', w.name || '');
+    const priceStr = String(Math.round(Number(w.price)||0)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    setVal('wl-price', priceStr);
+    setVal('wl-note', w.note || '');
+    setVal('wl-url', w.url || '');
+    setVal('wl-target-date', w.target_date || '');
+    _populateWishlistAccountSelect('wl-account', w.linked_account_id || '');
+    _setPriorityBtns(_wlPriority);
+    const title = document.getElementById('wishlist-modal-title');
+    if (title) title.textContent = 'Edit Wishlist';
+    const delBtn = document.getElementById('wl-delete-btn');
+    if (delBtn) delBtn.style.display = 'inline-block';
+    attachMoneyFormatter(document.getElementById('wl-price'));
+    openSheet('wishlist-modal');
+  } catch(err) {
+    console.error('openEditWishlist error:', err);
+    showToast('Gagal: ' + err.message, 'error');
+  }
+}
+
+async function submitWishlistModal() {
+  const name = document.getElementById('wl-name')?.value.trim();
+  const price = parseMoneyInput(document.getElementById('wl-price')?.value);
+  const note = document.getElementById('wl-note')?.value.trim() || '';
+  const url = document.getElementById('wl-url')?.value.trim() || '';
+  const targetDate = document.getElementById('wl-target-date')?.value || null;
+  const linkedAccount = document.getElementById('wl-account')?.value || null;
+
+  if (!name) { showToast('Nama wajib diisi', 'error'); return; }
+  if (!price || price <= 0) { showToast('Harga harus > 0', 'error'); return; }
+
+  const payload = {
+    name,
+    price,
+    priority: _wlPriority,
+    note,
+    url,
+    target_date: targetDate || null,
+    linked_account_id: linkedAccount || null,
+  };
+
+  try {
+    if (_editingWishlistId) {
+      await DB.updateWishlist(_editingWishlistId, payload);
+      showToast('Wishlist diupdate ✓');
+    } else {
+      payload.status = 'planning';
+      payload.saved_amount = 0;
+      await DB.createWishlist(payload);
+      showToast('Wishlist ditambah ✓');
+    }
+    closeSheet('wishlist-modal');
+    if (state.currentPage === 'wishlist' || state.currentPage === 'dashboard') navigate(state.currentPage);
+    else navigate('wishlist');
+  } catch(e) {
+    showToast('Gagal: ' + e.message, 'error');
+  }
+}
+
+function deleteWishlistFromModal() {
+  if (!_editingWishlistId) return;
+  const w = state.wishlist.find(x => x.id === _editingWishlistId);
+  if (!w) return;
+  if (typeof window.showConfirm === 'function') {
+    window.showConfirm('🗑️', 'Hapus Wishlist', `Hapus "${w.name}" dari wishlist?`, 'Hapus', 'btn-danger', async () => {
+      try {
+        await DB.deleteWishlist(_editingWishlistId);
+        closeSheet('wishlist-modal');
+        showToast('Wishlist dihapus ✓');
+        navigate('wishlist');
+      } catch(e) {
+        showToast('Gagal: ' + e.message, 'error');
+      }
+    });
+  }
+}
+
+// ── Mark as Bought ───────────────────────────────────────────────────────
+
+function openMarkBoughtWishlist(id) {
+  try {
+    const w = state.wishlist.find(x => x.id === id);
+    if (!w) return;
+    _buyingWishlistId = id;
+    const setVal = (elId, val) => { const el = document.getElementById(elId); if (el) el.value = val; };
+    const priceStr = String(Math.round(Number(w.price)||0)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    setVal('wl-buy-amount', priceStr);
+    setVal('wl-buy-note', `Wishlist: ${w.name}`);
+    _populateBuyAccountSelect(w.linked_account_id || state.accounts[0]?.id);
+    _populateBuyCategorySelect();
+    const title = document.getElementById('wl-buy-title');
+    if (title) title.textContent = `Beli: ${w.name}`;
+    attachMoneyFormatter(document.getElementById('wl-buy-amount'));
+    openSheet('wishlist-buy-modal');
+  } catch(err) {
+    console.error('openMarkBoughtWishlist error:', err);
+    showToast('Gagal: ' + err.message, 'error');
+  }
+}
+
+async function submitMarkBoughtWishlist() {
+  if (!_buyingWishlistId) return;
+  const amount = parseMoneyInput(document.getElementById('wl-buy-amount')?.value);
+  const accountId = document.getElementById('wl-buy-account')?.value;
+  const category = document.getElementById('wl-buy-category')?.value || '🛍️ Belanja';
+  const note = document.getElementById('wl-buy-note')?.value.trim() || '';
+
+  if (!amount || amount <= 0) { showToast('Jumlah tidak valid', 'error'); return; }
+  if (!accountId) { showToast('Pilih rekening', 'error'); return; }
+
+  try {
+    await DB.markWishlistBought(_buyingWishlistId, { accountId, amount, category, note });
+    closeSheet('wishlist-buy-modal');
+    showToast('Pembelian dicatat & transaksi dibuat ✓');
+    navigate(state.currentPage || 'wishlist');
+  } catch(e) {
+    showToast('Gagal: ' + e.message, 'error');
+  }
+}
+
+// ── Add Savings Progress ─────────────────────────────────────────────────
+
+function openSaveToWishlist(id) {
+  try {
+    const w = state.wishlist.find(x => x.id === id);
+    if (!w) return;
+    _savingWishlistId = id;
+    const setVal = (elId, val) => { const el = document.getElementById(elId); if (el) el.value = val; };
+    const setTxt = (elId, val) => { const el = document.getElementById(elId); if (el) el.textContent = val; };
+    setVal('wl-save-amount', '');
+    const saved = Number(w.saved_amount)||0;
+    const remaining = Math.max(0, Number(w.price) - saved);
+    const fmtRp = n => 'Rp ' + Math.round(n).toLocaleString('id-ID');
+    setTxt('wl-save-progress', `${w.name}: ${fmtRp(saved)} / ${fmtRp(w.price)} (sisa ${fmtRp(remaining)})`);
+    const title = document.getElementById('wl-save-title');
+    if (title) title.textContent = `Tabung untuk: ${w.name}`;
+    attachMoneyFormatter(document.getElementById('wl-save-amount'));
+    openSheet('wishlist-save-modal');
+  } catch(err) {
+    console.error('openSaveToWishlist error:', err);
+    showToast('Gagal: ' + err.message, 'error');
+  }
+}
+
+async function submitSaveToWishlist() {
+  if (!_savingWishlistId) return;
+  const amount = parseMoneyInput(document.getElementById('wl-save-amount')?.value);
+  if (!amount || amount <= 0) { showToast('Jumlah harus > 0', 'error'); return; }
+
+  try {
+    await DB.addSavingsToWishlist(_savingWishlistId, amount);
+    closeSheet('wishlist-save-modal');
+    showToast(`Tabungan ditambah ✓`);
+    navigate(state.currentPage || 'wishlist');
+  } catch(e) {
+    showToast('Gagal: ' + e.message, 'error');
+  }
+}
+
+// ── Expose ───────────────────────────────────────────────────────────────
+
+window.openAddWishlist = openAddWishlist;
+window.openEditWishlist = openEditWishlist;
+window.setWishlistPriority = setWishlistPriority;
+window.submitWishlistModal = submitWishlistModal;
+window.deleteWishlistFromModal = deleteWishlistFromModal;
+window.openMarkBoughtWishlist = openMarkBoughtWishlist;
+window.submitMarkBoughtWishlist = submitMarkBoughtWishlist;
+window.openSaveToWishlist = openSaveToWishlist;
+window.submitSaveToWishlist = submitSaveToWishlist;

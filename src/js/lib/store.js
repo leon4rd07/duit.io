@@ -13,6 +13,7 @@ export const state = {
   budgets:      [],
   recurring:    [],
   debts:        [],
+  wishlist:     [],
 
   // UI
   currentPage:    'dashboard',

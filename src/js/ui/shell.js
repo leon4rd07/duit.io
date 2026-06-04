@@ -32,6 +32,7 @@ function getShellHTML() {
         <div class="nav-item" data-page="budget" onclick="navigate('budget')"><span class="nav-icon">🎯</span> Anggaran</div>
         <div class="nav-item" data-page="recurring" onclick="navigate('recurring')"><span class="nav-icon">🔄</span> Rutin</div>
         <div class="nav-item" data-page="debts" onclick="navigate('debts')"><span class="nav-icon">🤝</span> Hutang/Piutang</div>
+        <div class="nav-item" data-page="wishlist" onclick="navigate('wishlist')"><span class="nav-icon">🎁</span> Wishlist</div>
       </div>
       <div class="nav-section">
         <div class="nav-section-label">Tools</div>
@@ -82,6 +83,7 @@ export function openMoreMenu() {
     { page: 'budget',     icon: '🎯', label: 'Anggaran' },
     { page: 'recurring',  icon: '🔄', label: 'Rutin' },
     { page: 'debts',      icon: '🤝', label: 'Hutang/Piutang' },
+    { page: 'wishlist',   icon: '🎁', label: 'Wishlist' },
     { page: 'advisor',    icon: '🤖', label: 'AI Advisor' },
     { page: 'reports',    icon: '📈', label: 'Laporan' },
     { page: 'categories', icon: '🏷️', label: 'Kategori' },

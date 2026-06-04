@@ -96,7 +96,9 @@ function renderDashboard(area, actions) {
             <div style="font-size:15px;font-weight:700;color:var(--accent)">${maskIf(isBalHidden(a.id), fmtShort(a.balance))}</div>
           </div>`).join('') || '<div class="text-muted text-sm">Tambah rekening untuk mulai</div>'}
       </div>
-    </div>`;
+    </div>
+
+    ${renderDashboardWishlist()}`;
 
   // Render charts
   setTimeout(()=>{
@@ -128,6 +130,61 @@ function renderDashboard(area, actions) {
 function changeMonth(delta) {
   state.dashboardMonth = new Date(state.dashboardMonth.getFullYear(), state.dashboardMonth.getMonth()+delta, 1);
   navigate('dashboard');
+}
+
+// ── Wishlist widget on dashboard (top 3 priority planning items) ────────
+function renderDashboardWishlist() {
+  const items = (state.wishlist || [])
+    .filter(w => w.status === 'planning')
+    .sort((a,b) => {
+      const pa = a.priority||2, pb = b.priority||2;
+      if (pa !== pb) return pa - pb;
+      return new Date(b.created_at||0) - new Date(a.created_at||0);
+    })
+    .slice(0, 3);
+
+  if (!items.length && (!state.wishlist || !state.wishlist.length)) {
+    // No wishlist at all — hide widget entirely
+    return '';
+  }
+
+  const itemHtml = items.map(w => {
+    const price = Number(w.price)||0;
+    const saved = Number(w.saved_amount)||0;
+    const pct = price > 0 ? Math.min(100, Math.round((saved/price)*100)) : 0;
+    let sub = `${fmtShort(saved)} / ${fmtShort(price)}`;
+    if (w.target_date) {
+      const today = new Date(); today.setHours(0,0,0,0);
+      const target = new Date(w.target_date); target.setHours(0,0,0,0);
+      const days = Math.ceil((target - today)/86400000);
+      const remaining = Math.max(0, price - saved);
+      if (saved >= price) sub = '🎉 Siap dibeli';
+      else if (days > 0) sub = `Nabung ${fmtShort(remaining/days)}/hari · ${days} hari lagi`;
+      else sub = `⚠️ Target lewat · kurang ${fmtShort(remaining)}`;
+    }
+    return `
+      <div class="dash-wl-item" onclick="navigate('wishlist')">
+        <div class="dash-wl-info">
+          <div class="dash-wl-name">${w.name}</div>
+          <div class="dash-wl-sub">${sub}</div>
+        </div>
+        <div class="dash-wl-progress">
+          <div class="dash-wl-progress-bar"><div style="width:${pct}%"></div></div>
+          <div class="dash-wl-pct">${pct}%</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="card" style="margin-top:16px">
+      <div class="flex items-center justify-between mb-12">
+        <div class="section-title" style="margin:0">🎁 Wishlist Teratas</div>
+        <button class="btn btn-ghost btn-sm" onclick="navigate('wishlist')">Lihat semua →</button>
+      </div>
+      <div class="dash-wishlist">
+        ${items.length ? itemHtml : '<div class="text-muted text-sm">Belum ada item dalam rencana</div>'}
+      </div>
+    </div>`;
 }
 
 function txItemHtml(t, showDelete = false) {
