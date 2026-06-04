@@ -11,7 +11,7 @@ import { monthKey, toLocalDateString } from './utils.js'
 export const ACTION_DEFINITIONS = `
 DAFTAR AKSI YANG TERSEDIA:
 
-1. Ubah saldo rekening (set ke nilai baru):
+1. Ubah saldo rekening (set ke nilai baru — sistem otomatis bikin transaksi "Penyesuaian Saldo" untuk diff, biar chart & history akurat):
 <ACTION>{"type":"update_balance","account":"<nama rekening>","amount":<nilai baru>}</ACTION>
 
 2. Tambah transaksi (income/expense/transfer):
@@ -176,12 +176,20 @@ export function describeAction(action) {
         lines: [`Rekening "${action.account}" tidak ditemukan`],
         warning: 'invalid'
       }
+      const oldBal = Number(acc.balance) || 0
+      const newBal = Number(action.amount)
+      const diff = newBal - oldBal
+      const diffStr = (diff>=0?'+':'−') + rp(Math.abs(diff))
+      const adjType = diff > 0 ? 'income' : diff < 0 ? 'expense' : 'no change'
       return {
         icon: '💰',
         title: 'Update Saldo',
         lines: [
           `${acc.name} (${acc.bank})`,
           `${rp(acc.balance)} → ${rp(action.amount)}`,
+          diff !== 0
+            ? `Auto-bikin tx penyesuaian: ${diffStr} (${adjType})`
+            : `Saldo tidak berubah`,
         ],
         warning: null,
       }
@@ -323,8 +331,12 @@ export async function executeAction(action) {
       if (!acc) throw new Error(`Rekening "${action.account}" tidak ditemukan`)
       const newBalance = Number(action.amount)
       if (!isFinite(newBalance)) throw new Error('Jumlah saldo tidak valid')
-      await DB.updateAccount(acc.id, { balance: newBalance })
-      return `Saldo ${acc.name} diubah ke ${rp(newBalance)}`
+      const { diff } = await DB.setAccountBalance(acc.id, newBalance, {
+        note: 'Penyesuaian saldo via AI',
+      })
+      if (diff === 0) return `Saldo ${acc.name} sudah ${rp(newBalance)} (tidak berubah)`
+      const diffStr = (diff>=0?'+':'−') + rp(Math.abs(diff))
+      return `Saldo ${acc.name} diubah ke ${rp(newBalance)} (tx penyesuaian ${diffStr} dibuat)`
     }
 
     case 'add_transaction': {

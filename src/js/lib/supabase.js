@@ -73,6 +73,36 @@ export async function updateAccountBalance(id, delta) {
   await updateAccount(id, { balance: newBalance })
 }
 
+/**
+ * Set an account's balance to a new absolute value.
+ * Auto-creates an "adjustment" transaction (income if +, expense if −) for the difference,
+ * so charts, running balance, and audit history stay accurate.
+ *
+ * Returns { tx, diff }. If diff is 0, no tx is created.
+ */
+export async function setAccountBalance(accountId, newBalance, opts = {}) {
+  const a = state.accounts.find(x => x.id === accountId)
+  if (!a) throw new Error('Rekening tidak ditemukan')
+  const oldBalance = Number(a.balance) || 0
+  const target = Number(newBalance)
+  if (!isFinite(target)) throw new Error('Nilai saldo tidak valid')
+  const diff = target - oldBalance
+  if (diff === 0) return { tx: null, diff: 0 }
+
+  const isPositive = diff > 0
+  // createTransaction will run applyBalanceEffect → updates balance to target automatically.
+  const tx = await createTransaction({
+    type: isPositive ? 'income' : 'expense',
+    amount: Math.abs(diff),
+    category: isPositive ? '💰 Penyesuaian Saldo' : '💸 Penyesuaian Saldo',
+    account_id: accountId,
+    to_account_id: null,
+    note: opts.note || 'Penyesuaian saldo manual',
+    date: opts.date || new Date().toISOString().split('T')[0],
+  })
+  return { tx, diff }
+}
+
 // ── Transactions ──────────────────────────────────────────────────────
 
 export async function createTransaction(payload) {

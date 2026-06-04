@@ -302,20 +302,48 @@ async function submitAccountModal() {
   if (!bankFinal) { showToast('Pilih atau ketik nama bank/dompet', 'error'); return; }
   const btn = document.getElementById('acct-submit-btn');
   btn.disabled = true; btn.textContent = 'Menyimpan...';
-  const payload = {
-    name, bank: bankFinal, balance,
-    color: _selectedAcctColor,
-    category: _selectedAcctCat,
-    icon: _selectedEmoji,
-    acct_type: _selectedAcctType,
-  };
   if (_editingAccountId) {
     const a = state.accounts.find(x => x.id === _editingAccountId);
-    const {error} = await state.supabase.from('accounts').update(payload).eq('id',_editingAccountId);
+    const oldBalance = Number(a?.balance) || 0;
+    const balanceChanged = a && Math.round(oldBalance) !== Math.round(balance);
+
+    // Update non-balance fields first (balance handled separately to keep audit trail)
+    const metaPayload = {
+      name, bank: bankFinal,
+      color: _selectedAcctColor,
+      category: _selectedAcctCat,
+      icon: _selectedEmoji,
+      acct_type: _selectedAcctType,
+    };
+    const {error} = await state.supabase.from('accounts').update(metaPayload).eq('id',_editingAccountId);
     if (error) { showToast(error.message,'error'); btn.disabled=false; btn.textContent='Simpan Perubahan'; return; }
-    if (a) Object.assign(a, payload);
-    showToast('Rekening diperbarui ✓');
+    if (a) Object.assign(a, metaPayload);
+
+    // If balance changed: auto-create adjustment transaction (income/expense for the diff)
+    if (balanceChanged) {
+      try {
+        const { tx, diff } = await DB.setAccountBalance(_editingAccountId, balance, {
+          note: 'Penyesuaian saldo manual',
+        });
+        const diffStr = (diff>=0?'+':'−') + 'Rp ' + Math.round(Math.abs(diff)).toLocaleString('id-ID');
+        showToast(`Rekening diperbarui ✓ (penyesuaian ${diffStr})`);
+      } catch (e) {
+        showToast('Saldo gagal diupdate: ' + e.message, 'error');
+        btn.disabled=false;
+        btn.textContent='Simpan Perubahan';
+        return;
+      }
+    } else {
+      showToast('Rekening diperbarui ✓');
+    }
   } else {
+    const payload = {
+      name, bank: bankFinal, balance,
+      color: _selectedAcctColor,
+      category: _selectedAcctCat,
+      icon: _selectedEmoji,
+      acct_type: _selectedAcctType,
+    };
     const {data,error} = await state.supabase.from('accounts').insert([{user_id:state.currentUser.id,...payload}]).select().single();
     if (error) { showToast(error.message,'error'); btn.disabled=false; btn.textContent='Simpan Rekening'; return; }
     state.accounts.push(data);
