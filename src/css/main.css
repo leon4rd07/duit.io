@@ -1210,3 +1210,97 @@ input[type="date"] {
   .wishlist-summary { grid-template-columns: 1fr; }
   .wishlist-grid { grid-template-columns: 1fr; }
 }
+
+/* ===== REPORTS: SHOPEEPAY-STYLE CATEGORY BREAKDOWN ===== */
+.cat-breakdown { padding: 16px 16px 8px }
+
+.month-nav {
+  display:flex; align-items:center; justify-content:space-between;
+  gap:12px; margin-bottom:14px;
+}
+.month-nav-label {
+  flex:1; text-align:center; font-size:14px; font-weight:600; color:var(--text);
+}
+.month-nav-btn {
+  background:transparent; border:1px solid var(--border); color:var(--text2);
+  width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center;
+  font-size:18px; cursor:pointer; transition:var(--transition);
+}
+.month-nav-btn:hover { background:var(--bg3); color:var(--text) }
+.month-nav-btn.disabled,
+.month-nav-btn:disabled { opacity:0.35; cursor:not-allowed }
+
+.report-stat-toggle {
+  display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:14px;
+}
+.report-stat-card {
+  background: var(--bg3); border:1.5px solid transparent; border-radius:14px;
+  padding:14px 16px; cursor:pointer; transition:var(--transition);
+}
+.report-stat-card:hover { border-color: var(--border) }
+.report-stat-card.active.expense {
+  border-color: var(--red);
+  background: var(--red-dim);
+}
+.report-stat-card.active.income {
+  border-color: var(--green);
+  background: var(--green-dim);
+}
+.report-stat-label { font-size:12px; color:var(--text2); margin-bottom:4px }
+.report-stat-value { font-size:18px; font-weight:700; color:var(--text); white-space:nowrap }
+.report-stat-card.active.expense .report-stat-value { color: var(--red) }
+.report-stat-card.active.income  .report-stat-value { color: var(--green) }
+
+/* Big donut with center label */
+.donut-wrap {
+  position:relative; height:260px; margin:8px 0 16px;
+  display:flex; align-items:center; justify-content:center;
+}
+.donut-wrap canvas { max-height:260px }
+.donut-center {
+  position:absolute; top:50%; left:50%; transform:translate(-50%, -50%);
+  text-align:center; pointer-events:none;
+}
+.donut-center-label { font-size:11px; color:var(--text3); margin-bottom:4px }
+.donut-center-value { font-size:20px; font-weight:700; color:var(--text) }
+
+/* Category rows */
+.cat-list { display:flex; flex-direction:column }
+.cat-row {
+  display:grid;
+  grid-template-columns: 36px 1fr auto auto 16px;
+  align-items:center; gap:12px;
+  padding:12px 4px;
+  border-bottom:1px solid var(--border);
+  cursor:pointer;
+  transition: var(--transition);
+}
+.cat-row:hover { background: var(--bg3) }
+.cat-row:last-child { border-bottom:none }
+.cat-row-icon {
+  width:36px; height:36px; border-radius:10px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:18px; flex-shrink:0;
+}
+.cat-row-name {
+  font-size:14px; color: var(--text); font-weight:500;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.cat-row-pct {
+  font-size:12px; color:var(--text2); font-weight:600;
+  text-align:right; min-width:48px;
+}
+.cat-row-amount {
+  font-size:13px; color:var(--text); font-weight:600;
+  text-align:right; min-width:64px;
+}
+.cat-row-chevron {
+  font-size:18px; color:var(--text3); text-align:center;
+}
+
+/* ===== FAB POSITION FIX (move slightly up, more centered visually) ===== */
+.fab {
+  /* Was: bottom: calc(64px + env(safe-area-inset-bottom)) — too low */
+  /* Now: shift up by ~12-16px so FAB sits a bit higher above mobile-nav */
+  bottom: calc(80px + env(safe-area-inset-bottom)) !important;
+}
