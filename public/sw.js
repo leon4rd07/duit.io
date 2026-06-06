@@ -1,89 +1,54 @@
-// duit.io Service Worker v1.0
-const CACHE_NAME = 'duit-io-v1';
-const STATIC_ASSETS = [
-  '/index.html',
-  '/manifest.json',
-  'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap',
-  'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js',
-  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
-];
+// public/sw.js — duit.io service worker
+// Handles notification display + click-to-open
+// (Caching is left to Vercel; this SW focuses on push/notification capabilities.)
 
-// Install: cache static assets
+const SW_VERSION = 'duit-sw-v1'
+
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      // Cache what we can, ignore failures for CDN resources
-      return Promise.allSettled(
-        STATIC_ASSETS.map(url => cache.add(url).catch(() => {}))
-      );
-    }).then(() => self.skipWaiting())
-  );
-});
+  // Activate immediately on update
+  self.skipWaiting()
+})
 
-// Activate: clean old caches
 self.addEventListener('activate', (event) => {
+  // Take control of all clients (open tabs/installs) right away
+  event.waitUntil(self.clients.claim())
+})
+
+// When user taps a notification, focus existing window or open new
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const targetUrl = (event.notification.data && event.notification.data.url) || '/'
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
-    ).then(() => self.clients.claim())
-  );
-});
-
-// Fetch: cache-first for static, network-first for API
-self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
-
-  // Skip non-GET, chrome-extension, and Supabase/Anthropic API calls
-  if (event.request.method !== 'GET') return;
-  if (url.protocol === 'chrome-extension:') return;
-  if (url.hostname.includes('supabase.co')) return;
-  if (url.hostname.includes('anthropic.com')) return;
-
-  // Network-first for HTML (always fresh)
-  if (url.pathname.endsWith('.html') || url.pathname === '/') {
-    event.respondWith(
-      fetch(event.request)
-        .then(res => {
-          const clone = res.clone();
-          caches.open(CACHE_NAME).then(c => c.put(event.request, clone));
-          return res;
-        })
-        .catch(() => caches.match(event.request))
-    );
-    return;
-  }
-
-  // Cache-first for fonts, scripts
-  event.respondWith(
-    caches.match(event.request).then(cached => {
-      if (cached) return cached;
-      return fetch(event.request).then(res => {
-        if (res.ok) {
-          const clone = res.clone();
-          caches.open(CACHE_NAME).then(c => c.put(event.request, clone));
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // If app is already open in any window, focus it and navigate
+      for (const client of clientList) {
+        if ('focus' in client) {
+          try {
+            if ('navigate' in client && targetUrl !== '/') client.navigate(targetUrl)
+          } catch (e) { /* ignore — same-origin nav may not be supported */ }
+          return client.focus()
         }
-        return res;
-      });
+      }
+      // Otherwise open a new window
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(targetUrl)
+      }
     })
-  );
-});
+  )
+})
 
-// Background sync for offline transactions (future enhancement)
-self.addEventListener('sync', (event) => {
-  if (event.tag === 'sync-transactions') {
-    // Handle offline queue sync
-    console.log('[SW] Syncing offline transactions...');
-  }
-});
-
-// Push notifications (future enhancement)
+// Optional: Push event handler (placeholder for future Push API integration)
 self.addEventListener('push', (event) => {
-  const data = event.data?.json() || {};
+  if (!event.data) return
+  let payload = {}
+  try { payload = event.data.json() } catch { payload = { title: 'duit.io', body: event.data.text() } }
   event.waitUntil(
-    self.registration.showNotification(data.title || 'duit.io', {
-      body: data.body || 'Notifikasi baru',
-      icon: '/icon-192.png',
-      badge: '/icon-192.png',
+    self.registration.showNotification(payload.title || 'duit.io 💰', {
+      body: payload.body || '',
+      icon: payload.icon || '/icon-192.png',
+      badge: payload.badge || '/icon-192.png',
+      tag: payload.tag || 'duit-push',
+      data: payload.data || {},
     })
-  );
-});
+  )
+})

@@ -108,6 +108,12 @@ function showApp() {
   if (emailEl) emailEl.textContent = state.currentUser.email
 
   applyTheme(localStorage.getItem('theme') || 'dark')
+
+  // Register service worker for notifications (silently — log on failure only)
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(err => console.warn('SW registration failed:', err))
+  }
+
   initNotifScheduler()
   navigate('dashboard')
 }
