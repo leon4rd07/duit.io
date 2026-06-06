@@ -1255,10 +1255,10 @@ input[type="date"] {
 
 /* Big donut with center label */
 .donut-wrap {
-  position:relative; height:300px; margin:8px -8px 16px;
+  position:relative; height:320px; margin:8px -8px 16px;
   display:flex; align-items:center; justify-content:center;
 }
-.donut-wrap canvas { max-height:300px; width:100% }
+.donut-wrap canvas { max-height:320px; width:100% }
 .donut-center {
   position:absolute; top:50%; left:50%; transform:translate(-50%, -50%);
   text-align:center; pointer-events:none;
@@ -1267,7 +1267,7 @@ input[type="date"] {
 .donut-center-value { font-size:18px; font-weight:700; color:var(--text) }
 
 @media (max-width: 480px) {
-  .donut-wrap { height: 280px; margin: 8px -4px 16px }
+  .donut-wrap { height: 300px; margin: 8px -4px 16px }
 }
 
 /* Category rows */
