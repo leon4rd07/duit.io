@@ -980,11 +980,11 @@ function openCatPicker() {
     const firstGrp = Object.keys(groups)[0];
     if (firstGrp) _catPickerExpanded.add(firstGrp);
   }
-  renderCatPicker();
+  renderTxCatPicker();
   document.getElementById('cat-picker-modal')?.classList.add('open');
 }
 
-function renderCatPicker() {
+function renderTxCatPicker() {
   const modal = document.getElementById('cat-picker-modal');
   if (!modal) return;
   const type = txType === 'income' ? 'income' : 'expense';
@@ -1041,7 +1041,7 @@ function renderCatPicker() {
 function catPickerToggleGroup(grp) {
   if (_catPickerExpanded.has(grp)) _catPickerExpanded.delete(grp);
   else _catPickerExpanded.add(grp);
-  renderCatPicker();
+  renderTxCatPicker();
 }
 
 function catPickerSelect(full) {
