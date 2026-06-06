@@ -780,7 +780,18 @@ function openAddTransaction() {
     const presetType = sessionStorage.getItem('preset_tx_type');
     if (presetType) sessionStorage.removeItem('preset_tx_type');
     setTxType(presetType || 'expense');
-    populateTxAccounts();
+
+    // Restore last-used accounts (only if those accounts still exist)
+    const lastFromId = localStorage.getItem('last_used_from_account_id');
+    const lastToId   = localStorage.getItem('last_used_to_account_id');
+    const fromExists = lastFromId && state.accounts.some(a => a.id === lastFromId);
+    const toExists   = lastToId && state.accounts.some(a => a.id === lastToId);
+    populateTxAccounts(
+      fromExists ? lastFromId : undefined,
+      toExists ? lastToId : undefined,
+      undefined
+    );
+
     attachMoneyFormatter(document.getElementById('tx-amount'));
     const modalEl = document.getElementById('tx-modal');
     if (modalEl) modalEl.classList.add('open');
@@ -1133,6 +1144,13 @@ async function saveTx() {
     } else {
       // Use DB helper that auto-updates balances
       await DB.createTransaction({ type:txType, amount, category, account_id, to_account_id, note, date });
+      // Remember last-used accounts for next time
+      try {
+        localStorage.setItem('last_used_from_account_id', account_id);
+        if (txType === 'transfer' && to_account_id) {
+          localStorage.setItem('last_used_to_account_id', to_account_id);
+        }
+      } catch {}
       showToast('Transaksi disimpan ✓');
     }
     closeTxModal();

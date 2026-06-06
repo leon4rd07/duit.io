@@ -3,6 +3,7 @@ import { state }             from '../lib/store.js'
 import { showToast }         from '../lib/toast.js'
 import { navigate }          from '../lib/router.js'
 import { fmt, fmtShort, fmtDate, monthKey } from '../lib/utils.js'
+import { isPushSupported, hasVapidKey, subscribeAndSave, updateSubscriptionPrefs, unsubscribeAndRemove } from '../lib/push.js'
 
 // ── Storage helpers ──────────────────────────────────────────────────────
 const isNotifSupported = () => typeof Notification !== 'undefined'
@@ -24,8 +25,13 @@ function getTimes() {
 }
 
 function setTimes(arr) {
-  localStorage.setItem('notif_times', JSON.stringify(arr.slice().sort()))
+  const sorted = arr.slice().sort()
+  localStorage.setItem('notif_times', JSON.stringify(sorted))
   scheduleNotif()
+  // Sync to server-side push subscription (silent on failure)
+  if (getEnabled()) {
+    updateSubscriptionPrefs({ notifTimes: sorted }).catch(() => {})
+  }
 }
 
 function isStandalone() {
@@ -224,6 +230,7 @@ function renderNotifSettings(area, actions) {
         Suara: <strong>${sound}</strong><br>
         Izin browser: <strong style="color:${perm==='granted'?'var(--green)':perm==='denied'?'var(--red)':'var(--amber)'}">${perm}</strong><br>
         Service Worker: <strong style="color:${hasSW()?'var(--green)':'var(--red)'}">${hasSW()?'tersedia':'tidak tersedia'}</strong><br>
+        Push API: <strong style="color:${isPushSupported() && hasVapidKey() ? 'var(--green)' : 'var(--amber)'}">${isPushSupported() && hasVapidKey() ? 'siap (background ON)' : !isPushSupported() ? 'browser tidak support' : 'VAPID key belum di-set'}</strong><br>
         Mode: <strong>${standalone?'PWA terinstall ✓':'Browser biasa'}</strong>
       </div>
     </div>`
@@ -247,6 +254,8 @@ async function toggleNotif() {
   if (current) {
     localStorage.setItem('notif_enabled', 'false')
     if (window._notifTimer) clearInterval(window._notifTimer)
+    // Unsubscribe from server-side push so cron doesn't fire
+    try { await unsubscribeAndRemove() } catch {}
     showToast('Pengingat dinonaktifkan')
     navigate('notifSettings')
     return
@@ -266,7 +275,19 @@ async function toggleNotif() {
   }
   localStorage.setItem('notif_enabled', 'true')
   scheduleNotif()
-  showToast('Pengingat diaktifkan! 🔔')
+
+  // Subscribe to push so backend cron can fire even when app closed
+  if (isPushSupported() && hasVapidKey()) {
+    try {
+      await subscribeAndSave({ notifTimes: getTimes(), enabled: true })
+      showToast('Pengingat aktif (background ON) 🔔')
+    } catch (e) {
+      console.warn('Push subscribe failed:', e)
+      showToast(`Pengingat aktif (foreground only — ${e.message})`, 'error')
+    }
+  } else {
+    showToast('Pengingat aktif (foreground only) 🔔')
+  }
   navigate('notifSettings')
 }
 
