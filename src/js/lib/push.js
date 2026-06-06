@@ -1,6 +1,7 @@
 // src/js/lib/push.js
 // Web Push subscription helpers — talks to Supabase push_subscriptions table.
-import { db, state } from './supabase.js'
+import { db } from './supabase.js'
+import { state } from './store.js'
 
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || ''
 
