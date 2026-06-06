@@ -64,7 +64,9 @@ function getShellHTML() {
       <div class="mobile-nav-item" data-page="more" onclick="window.openMoreMenu && window.openMoreMenu()"><span class="mnav-icon">☰</span>Lainnya</div>
     </div>
   </nav>
-  <div class="fab" id="fab-add" onclick="window.openAddTransaction()">+</div>`
+  <div class="fab" id="fab-add" onclick="window.openAddTransaction()" aria-label="Tambah transaksi">
+    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  </div>`
 }
 
 // ── "Lainnya" (More) bottom sheet for mobile ──────────────────────────
