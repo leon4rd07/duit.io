@@ -7,15 +7,47 @@ import { CATEGORIES, getCatGroups, getCatObj } from '../lib/categories.js'
 import { AVATAR_COLORS }     from '../lib/config.js'
 import * as DB                from '../lib/supabase.js'
 
+// Helpers
+const isNotifSupported = () => typeof Notification !== 'undefined'
+const getEnabled = () => localStorage.getItem('notif_enabled') === 'true'
+const getTime    = () => localStorage.getItem('notif_time') || '21:00'
+const getSound   = () => localStorage.getItem('notif_sound') || 'coins'
+
+// Detect standalone (PWA installed) mode
+function isStandalone() {
+  return window.matchMedia('(display-mode: standalone)').matches
+    || window.navigator.standalone === true
+}
 
 // ===== NOTIFICATION SETTINGS =====
 function renderNotifSettings(area, actions) {
-  const enabled = localStorage.getItem('notif_enabled') === 'true';
-  const time = localStorage.getItem('notif_time') || '21:00';
-  const sound = localStorage.getItem('notif_sound') || 'coins';
-  const perm = Notification.permission;
+  if (!isNotifSupported()) {
+    area.innerHTML = `
+      <div class="card">
+        <div class="section-title mb-12">Notifikasi Tidak Didukung</div>
+        <div style="color:var(--text2);font-size:13px;line-height:1.6">
+          Browser ini tidak mendukung Notification API. Coba browser modern (Chrome, Firefox, Safari, Edge versi terbaru) atau install aplikasi sebagai PWA.
+        </div>
+      </div>`
+    return
+  }
+
+  const enabled = getEnabled()
+  const time = getTime()
+  const sound = getSound()
+  const perm = Notification.permission
+  const standalone = isStandalone()
 
   area.innerHTML = `
+    ${!standalone ? `
+      <div class="card mb-14" style="border-left:3px solid var(--amber);background:rgba(245,158,11,0.08)">
+        <div style="font-weight:600;font-size:13px;margin-bottom:6px">💡 Tip: Install sebagai PWA</div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.6">
+          Notifikasi background hanya bekerja optimal kalau aplikasi di-install ke home screen. Buka menu browser → "Tambah ke Layar Utama" / "Install App". Kalau cuma dibuka di tab browser, notifikasi hanya jalan saat tab aktif.
+        </div>
+      </div>
+    ` : ''}
+
     <div class="card mb-14">
       <div class="section-title mb-4">Pengingat Harian</div>
       <div style="font-size:13px;color:var(--text2);margin-bottom:16px">
@@ -26,7 +58,7 @@ function renderNotifSettings(area, actions) {
           <div>
             <div style="font-weight:600;font-size:14px">Aktifkan Pengingat</div>
             <div style="font-size:12px;color:var(--text2);margin-top:2px">
-              ${perm==='granted'?'✓ Izin notifikasi diberikan':perm==='denied'?'⚠️ Izin ditolak — aktifkan di browser':'Akan minta izin saat diaktifkan'}
+              ${perm==='granted'?'✓ Izin notifikasi diberikan':perm==='denied'?'⚠️ Izin ditolak — aktifkan manual di pengaturan browser':'Akan minta izin saat diaktifkan'}
             </div>
           </div>
           <div class="toggle-switch ${enabled?'on':''}" id="notif-toggle" onclick="toggleNotif()">
@@ -46,12 +78,12 @@ function renderNotifSettings(area, actions) {
           <div style="font-weight:600;font-size:14px">Suara Notifikasi</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             ${[
-              {id:'coins',label:'🪙 Koin',emoji:'🪙'},
-              {id:'ding',label:'🔔 Ding',emoji:'🔔'},
-              {id:'pop',label:'💬 Pop',emoji:'💬'},
-              {id:'chime',label:'🎵 Chime',emoji:'🎵'},
+              {id:'coins',label:'🪙 Koin'},
+              {id:'ding',label:'🔔 Ding'},
+              {id:'pop',label:'💬 Pop'},
+              {id:'chime',label:'🎵 Chime'},
             ].map(s=>`
-              <button class="btn ${sound===s.id?'btn-accent':'btn-ghost'} btn-sm" onclick="setNotifSound('${s.id}');playPreviewSound('${s.id}')">${s.label}</button>
+              <button class="btn ${sound===s.id?'btn-accent':'btn-ghost'} btn-sm" onclick="setNotifSound('${s.id}')">${s.label}</button>
             `).join('')}
           </div>
         </div>
@@ -70,122 +102,170 @@ function renderNotifSettings(area, actions) {
         Pengingat: <strong style="color:${enabled?'var(--green)':'var(--text3)'}">${enabled?'Aktif':'Nonaktif'}</strong><br>
         Jam: <strong>${time}</strong><br>
         Suara: <strong>${sound}</strong><br>
-        Izin browser: <strong style="color:${perm==='granted'?'var(--green)':perm==='denied'?'var(--red)':'var(--amber)'}">${perm}</strong>
+        Izin browser: <strong style="color:${perm==='granted'?'var(--green)':perm==='denied'?'var(--red)':'var(--amber)'}">${perm}</strong><br>
+        Mode: <strong>${standalone?'PWA terinstall ✓':'Browser biasa'}</strong>
       </div>
-    </div>`;
+    </div>`
 }
 
 async function toggleNotif() {
-  const current = localStorage.getItem('notif_enabled') === 'true';
-  if (!current) {
-    // Request permission
-    if (Notification.permission === 'default') {
-      if (perm !== 'granted') {
-        showToast('Izin notifikasi ditolak — aktifkan di pengaturan browser', 'error');
-        return;
-      }
-    }
-    if (Notification.permission === 'denied') {
-      showToast('Izin notifikasi ditolak — aktifkan manual di browser', 'error');
-      return;
-    }
-    localStorage.setItem('notif_enabled', 'true');
-    scheduleNotif();
-    showToast('Pengingat diaktifkan! 🔔');
-  } else {
-    localStorage.setItem('notif_enabled', 'false');
-    showToast('Pengingat dinonaktifkan');
+  if (!isNotifSupported()) {
+    showToast('Browser ini tidak mendukung notifikasi', 'error')
+    return
   }
-  navigate('notifSettings');
+
+  const current = getEnabled()
+  if (current) {
+    // Turn OFF
+    localStorage.setItem('notif_enabled', 'false')
+    if (window._notifTimer) clearInterval(window._notifTimer)
+    showToast('Pengingat dinonaktifkan')
+    navigate('notifSettings')
+    return
+  }
+
+  // Turning ON — request permission first if needed
+  let perm = Notification.permission
+  if (perm === 'denied') {
+    showToast('Izin notifikasi ditolak. Aktifkan manual di pengaturan browser.', 'error')
+    return
+  }
+  if (perm === 'default') {
+    try {
+      perm = await Notification.requestPermission()
+    } catch (e) {
+      showToast('Gagal meminta izin: ' + e.message, 'error')
+      return
+    }
+    if (perm !== 'granted') {
+      showToast('Izin notifikasi dibutuhkan untuk pengingat', 'error')
+      return
+    }
+  }
+
+  localStorage.setItem('notif_enabled', 'true')
+  scheduleNotif()
+  showToast('Pengingat diaktifkan! 🔔')
+  navigate('notifSettings')
 }
 
 function setNotifSound(s) {
-  localStorage.setItem('notif_sound', s);
-  navigate('notifSettings');
+  localStorage.setItem('notif_sound', s)
+  playNotifSound(s)  // preview the sound
+  navigate('notifSettings')
 }
 
-// Generate unique sound using Web Audio API
+// Generate sound using Web Audio API
 function playNotifSound(type) {
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = new (window.AudioContext || window.webkitAudioContext)()
     const sequences = {
       coins: [[523,0.08],[659,0.08],[784,0.08],[1047,0.2]],
       ding:  [[880,0.05],[880,0.3]],
       pop:   [[300,0.02],[600,0.12],[300,0.02]],
       chime: [[523,0.1],[659,0.1],[784,0.1],[659,0.1],[523,0.25]],
-    };
-    const seq = sequences[type] || sequences.ding;
-    let t = ctx.currentTime + 0.05;
+    }
+    const seq = sequences[type] || sequences.ding
+    let t = ctx.currentTime + 0.05
     seq.forEach(([freq, dur]) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain); gain.connect(ctx.destination);
-      osc.frequency.value = freq;
-      osc.type = type==='coins'||type==='chime' ? 'sine' : type==='pop' ? 'triangle' : 'sine';
-      gain.gain.setValueAtTime(0.4, t);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
-      osc.start(t); osc.stop(t + dur);
-      t += dur;
-    });
-  } catch(e) { console.log('Audio not available'); }
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain); gain.connect(ctx.destination)
+      osc.frequency.value = freq
+      osc.type = (type==='coins'||type==='chime') ? 'sine' : type==='pop' ? 'triangle' : 'sine'
+      gain.gain.setValueAtTime(0.4, t)
+      gain.gain.exponentialRampToValueAtTime(0.001, t + dur)
+      osc.start(t); osc.stop(t + dur)
+      t += dur
+    })
+  } catch(e) {
+    console.warn('Audio not available:', e)
+  }
 }
 
-function playPreviewSound(type) { playNotifSound(type); }
-
 function scheduleNotif() {
-  // Clear existing
-  if (window._notifTimer) clearInterval(window._notifTimer);
-  if (!enabled || Notification.permission !== 'granted') return;
+  if (window._notifTimer) clearInterval(window._notifTimer)
+  const enabled = getEnabled()
+  if (!enabled) return
+  if (!isNotifSupported() || Notification.permission !== 'granted') return
 
   // Check every minute if it's time to notify
   window._notifTimer = setInterval(() => {
-    const now = new Date();
-    const targetTime = localStorage.getItem('notif_time') || '21:00';
-    const [th, tm] = targetTime.split(':').map(Number);
+    const now = new Date()
+    const targetTime = getTime()
+    const [th, tm] = targetTime.split(':').map(Number)
     if (now.getHours() === th && now.getMinutes() === tm) {
-      checkAndSendNotif();
+      // Only send once per minute window
+      const lastSent = window._lastNotifMinute
+      const currentMinute = `${now.toDateString()}-${th}-${tm}`
+      if (lastSent !== currentMinute) {
+        window._lastNotifMinute = currentMinute
+        checkAndSendNotif()
+      }
     }
-  }, 60000);
+  }, 30000)  // check every 30 seconds to be safe with timing
 }
 
 function checkAndSendNotif() {
-  const today = new Date().toISOString().split('T')[0];
-  const todayTx = state.transactions.filter(t => t.date === today);
+  if (!isNotifSupported() || Notification.permission !== 'granted') return
+  const sound = getSound()
+  const today = new Date().toISOString().split('T')[0]
+  const todayTx = state.transactions.filter(t => t.date === today)
   if (todayTx.length === 0) {
-    playNotifSound(sound);
-    new Notification('duit.io 💰', {
-      body: 'Kamu belum catat transaksi hari ini! Jangan lupa update keuanganmu 📝',
-      icon: '/icon-192.png',
-      badge: '/icon-192.png',
-      tag: 'daily-reminder',
-    });
+    try {
+      playNotifSound(sound)
+      new Notification('duit.io 💰', {
+        body: 'Kamu belum catat transaksi hari ini! Jangan lupa update keuanganmu 📝',
+        icon: '/icon-192.png',
+        badge: '/icon-192.png',
+        tag: 'daily-reminder',
+      })
+    } catch(e) {
+      console.warn('Failed to send notification:', e)
+    }
   }
 }
 
 async function sendTestNotif() {
-  if (Notification.permission !== 'granted') {
-    if (perm !== 'granted') { showToast('Izin notifikasi diperlukan', 'error'); return; }
+  if (!isNotifSupported()) {
+    showToast('Browser ini tidak mendukung notifikasi', 'error')
+    return
   }
-  playNotifSound(sound);
-  new Notification('duit.io 💰 — Test', {
-    body: 'Halo! Ini adalah test notifikasi duit.io. Semuanya berjalan baik! ✓',
-    icon: '/icon-192.png',
-    tag: 'test-notif',
-  });
-  showToast('Test notifikasi dikirim!');
+  let perm = Notification.permission
+  if (perm === 'default') {
+    try { perm = await Notification.requestPermission() } catch (e) {
+      showToast('Gagal meminta izin: ' + e.message, 'error'); return
+    }
+  }
+  if (perm !== 'granted') {
+    showToast('Izin notifikasi diperlukan. Aktifkan di pengaturan browser.', 'error')
+    return
+  }
+  const sound = getSound()
+  try {
+    playNotifSound(sound)
+    new Notification('duit.io 💰 — Test', {
+      body: 'Halo! Ini adalah test notifikasi duit.io. Semuanya berjalan baik! ✓',
+      icon: '/icon-192.png',
+      tag: 'test-notif',
+    })
+    showToast('Test notifikasi dikirim! 🔔')
+  } catch(e) {
+    showToast('Gagal kirim: ' + e.message, 'error')
+  }
 }
 
 // Start scheduler on app load
 function initNotifScheduler() {
-  if (localStorage.getItem('notif_enabled') === 'true') {
-    scheduleNotif();
+  if (!isNotifSupported()) return
+  if (getEnabled() && Notification.permission === 'granted') {
+    scheduleNotif()
   }
 }
-
 
 export { renderNotifSettings, initNotifScheduler, sendTestNotif }
 
 window.toggleNotif = toggleNotif
 window.setNotifSound = setNotifSound
-window.playPreviewSound = playPreviewSound
+window.scheduleNotif = scheduleNotif
 window.sendTestNotif = sendTestNotif

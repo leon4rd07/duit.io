@@ -126,7 +126,7 @@ function renderAuthScreen(container) {
   container.innerHTML = `
     <div class="auth-card">
       <div class="auth-logo">
-        <div class="logo-mark">D</div>
+        <div class="logo-mark"><img src="/icon.svg" alt="duit.io" width="36" height="36"/></div>
         <div class="logo-text">duit<span>.io</span></div>
       </div>
       <div class="auth-tab-row">

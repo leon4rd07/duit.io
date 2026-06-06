@@ -86,7 +86,8 @@ img{max-width:100%;display:block}
 #auth-screen::after{content:'';position:absolute;bottom:-200px;right:-200px;width:500px;height:500px;background:radial-gradient(circle,rgba(255,124,92,0.04) 0%,transparent 70%);pointer-events:none}
 .auth-card{background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:40px;width:100%;max-width:400px;box-shadow:var(--shadow)}
 .auth-logo{display:flex;align-items:center;gap:10px;margin-bottom:32px}
-.auth-logo .logo-mark{width:40px;height:40px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;color:#fff}
+.auth-logo .logo-mark{width:40px;height:40px;background:transparent;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden}
+.auth-logo .logo-mark img{width:100%;height:100%;display:block}
 .auth-logo .logo-text{font-size:22px;font-weight:800;letter-spacing:-0.5px}
 .auth-logo .logo-text span{color:var(--accent)}
 .auth-tab-row{display:flex;background:var(--bg3);border-radius:10px;padding:4px;margin-bottom:28px}
@@ -126,7 +127,8 @@ img{max-width:100%;display:block}
 .sidebar{width:var(--sidebar-w);background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto;position:relative;z-index:10}
 .sidebar-header{padding:24px 20px 16px;border-bottom:1px solid var(--border)}
 .sidebar-logo{display:flex;align-items:center;gap:10px}
-.logo-mark{width:36px;height:36px;background:var(--accent);border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;color:#fff;flex-shrink:0}
+.logo-mark{width:36px;height:36px;background:transparent;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden}
+.logo-mark img{width:100%;height:100%;display:block}
 .logo-text{font-size:18px;font-weight:800;letter-spacing:-0.5px}
 .logo-text span{color:var(--accent)}
 .sidebar-user{padding:14px 16px;margin:8px;background:var(--bg3);border-radius:10px;font-size:12px}
@@ -1253,16 +1255,20 @@ input[type="date"] {
 
 /* Big donut with center label */
 .donut-wrap {
-  position:relative; height:260px; margin:8px 0 16px;
+  position:relative; height:300px; margin:8px -8px 16px;
   display:flex; align-items:center; justify-content:center;
 }
-.donut-wrap canvas { max-height:260px }
+.donut-wrap canvas { max-height:300px; width:100% }
 .donut-center {
   position:absolute; top:50%; left:50%; transform:translate(-50%, -50%);
   text-align:center; pointer-events:none;
 }
 .donut-center-label { font-size:11px; color:var(--text3); margin-bottom:4px }
-.donut-center-value { font-size:20px; font-weight:700; color:var(--text) }
+.donut-center-value { font-size:18px; font-weight:700; color:var(--text) }
+
+@media (max-width: 480px) {
+  .donut-wrap { height: 280px; margin: 8px -4px 16px }
+}
 
 /* Category rows */
 .cat-list { display:flex; flex-direction:column }
@@ -1298,9 +1304,82 @@ input[type="date"] {
   font-size:18px; color:var(--text3); text-align:center;
 }
 
-/* ===== FAB POSITION FIX (move slightly up, more centered visually) ===== */
+/* ===== FAB POSITION FIX (positioned well above mobile-nav) ===== */
 .fab {
-  /* Was: bottom: calc(64px + env(safe-area-inset-bottom)) — too low */
-  /* Now: shift up by ~12-16px so FAB sits a bit higher above mobile-nav */
-  bottom: calc(80px + env(safe-area-inset-bottom)) !important;
+  bottom: calc(100px + env(safe-area-inset-bottom)) !important;
+}
+
+/* ===== ACCORDION PICKER (account + category) ===== */
+.picker-group {
+  background: var(--bg3); border-radius: 12px; overflow: hidden;
+  margin-bottom: 8px;
+}
+.picker-group-header {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px; cursor: pointer;
+  transition: background 0.15s;
+}
+.picker-group-header:hover { background: var(--bg4) }
+.picker-group-chevron {
+  font-size: 18px; color: var(--text3);
+  transition: transform 0.25s;
+  display: inline-block;
+}
+.picker-group.expanded .picker-group-chevron { transform: rotate(90deg) }
+
+.picker-group-body {
+  display: none;
+  padding: 0 10px 10px;
+  flex-direction: column;
+  gap: 6px;
+}
+.picker-group.expanded .picker-group-body { display: flex }
+
+/* Re-style inner items to be slightly smaller than the group header */
+.picker-group-body .picker-acct-item {
+  background: var(--bg2);
+  padding: 10px 12px;
+  border-radius: 9px;
+}
+.picker-group-body .picker-acct-item:hover {
+  background: var(--bg4);
+  transform: none;
+}
+
+/* Category picker rows (selectable with radio) */
+.picker-cat-item-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px;
+  background: var(--bg2); border-radius: 9px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.picker-cat-item-row:hover { background: var(--bg4) }
+.picker-cat-item-row.selected {
+  background: var(--accent-dim);
+  border: 1px solid var(--accent);
+}
+.picker-cat-emoji { font-size: 20px; flex-shrink: 0; width: 28px; text-align: center }
+.picker-cat-itemname {
+  flex: 1; font-size: 14px; font-weight: 500; color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.picker-cat-radio {
+  width: 20px; height: 20px; border-radius: 50%;
+  border: 2px solid var(--border2);
+  flex-shrink: 0;
+  position: relative;
+  transition: var(--transition);
+}
+.picker-cat-radio.on {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+.picker-cat-radio.on::after {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 6px; height: 6px;
+  background: #fff;
+  border-radius: 50%;
 }

@@ -83,6 +83,7 @@
 
 <!-- ACCOUNT PICKER MODAL (2-step: category then account) -->
 <div class="sheet-overlay" id="account-picker-modal"></div>
+<div class="sheet-overlay" id="cat-picker-modal"></div>
 
 <!-- SETTLE DEBT MODAL -->
 <div class="sheet-overlay" id="settle-modal">
@@ -146,7 +147,14 @@
         </div>
         <div class="field" id="tx-cat-wrap">
           <label>Kategori</label>
-          <select id="tx-category"></select>
+          <input type="hidden" id="tx-category"/>
+          <div class="account-display-btn" id="tx-category-display" onclick="openCatPicker()">
+            <span class="acct-display-content">
+              <span class="acct-display-emoji">📂</span>
+              <span class="acct-display-text" style="color:var(--text3)">Pilih kategori</span>
+            </span>
+            <span class="acct-display-chevron">›</span>
+          </div>
         </div>
       </div>
       <div class="field">

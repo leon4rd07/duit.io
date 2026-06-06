@@ -139,7 +139,103 @@ function renderReports(area, actions) {
     if (catEntries.length) {
       const ctx2 = document.getElementById('cat-donut')?.getContext('2d')
       if (ctx2) {
-        const bg2 = getComputedStyle(document.documentElement).getPropertyValue('--bg2').trim() || '#1a1a1a'
+        const cs = getComputedStyle(document.documentElement)
+        const bg2 = cs.getPropertyValue('--bg2').trim() || '#1a1a1a'
+        const text2 = cs.getPropertyValue('--text2').trim() || '#8b92a8'
+        const text3 = cs.getPropertyValue('--text3').trim() || '#5a6075'
+
+        // Custom plugin: draws leader lines + labels outside the donut (top-5 segments only)
+        const leaderLinesPlugin = {
+          id: 'leaderLines',
+          afterDraw(chart) {
+            const { ctx, chartArea } = chart
+            const meta = chart.getDatasetMeta(0)
+            const ds = chart.data.datasets[0]
+            const labels = chart.data.labels
+            const dataArr = ds.data
+            const total = dataArr.reduce((s, v) => s + Number(v), 0)
+            if (!total) return
+
+            // Build list of items with their angle and value, then take top 5
+            const items = meta.data.map((arc, i) => ({
+              i, arc, value: Number(dataArr[i]), label: labels[i], pct: dataArr[i] / total
+            }))
+            // Sort by value desc and take top 5 (avoid label clutter)
+            const topItems = items.slice().sort((a, b) => b.value - a.value).slice(0, 5)
+            const topIdxSet = new Set(topItems.map(t => t.i))
+
+            ctx.save()
+            ctx.font = '11.5px system-ui, -apple-system, sans-serif'
+            ctx.lineWidth = 1
+
+            // Track right/left side label y-positions to detect overlap
+            const placedLabels = { left: [], right: [] }
+            const labelHeight = 16
+
+            items.forEach(({ i, arc, label, pct }) => {
+              if (!topIdxSet.has(i)) return
+              if (pct < 0.02) return // skip extremely tiny segments
+
+              const startAngle = arc.startAngle
+              const endAngle = arc.endAngle
+              const midAngle = (startAngle + endAngle) / 2
+              const outerR = arc.outerRadius
+              const cx = arc.x
+              const cy = arc.y
+
+              // Point on the segment edge
+              const x1 = cx + Math.cos(midAngle) * outerR
+              const y1 = cy + Math.sin(midAngle) * outerR
+
+              // Bend point (extended outward radially)
+              const bendR = outerR + 12
+              const x2 = cx + Math.cos(midAngle) * bendR
+              let y2 = cy + Math.sin(midAngle) * bendR
+
+              // Side direction
+              const isRight = Math.cos(midAngle) >= 0
+              const side = isRight ? 'right' : 'left'
+              const sideMul = isRight ? 1 : -1
+
+              // Horizontal extension to label area
+              const labelX = isRight
+                ? Math.min(x2 + 18, chartArea.right - 4)
+                : Math.max(x2 - 18, chartArea.left + 4)
+
+              // Avoid vertical overlap with previous labels on same side
+              for (const py of placedLabels[side]) {
+                if (Math.abs(y2 - py) < labelHeight) {
+                  y2 = y2 < py ? py - labelHeight : py + labelHeight
+                }
+              }
+              placedLabels[side].push(y2)
+
+              // Draw line: edge → bend → label
+              ctx.strokeStyle = text3
+              ctx.beginPath()
+              ctx.moveTo(x1, y1)
+              ctx.lineTo(x2, y2)
+              ctx.lineTo(labelX - sideMul * 4, y2)
+              ctx.stroke()
+
+              // Dot at the end of the line
+              ctx.fillStyle = ds.backgroundColor[i]
+              ctx.beginPath()
+              ctx.arc(labelX - sideMul * 4, y2, 2.5, 0, Math.PI * 2)
+              ctx.fill()
+
+              // Label text — strip emoji prefix for cleanliness
+              const cleanLabel = (label || '').replace(/^[^\w\s]+\s*/, '') || label || ''
+              ctx.fillStyle = text2
+              ctx.textAlign = isRight ? 'left' : 'right'
+              ctx.textBaseline = 'middle'
+              ctx.fillText(cleanLabel, labelX + sideMul * 2, y2)
+            })
+
+            ctx.restore()
+          },
+        }
+
         new Chart(ctx2, {
           type: 'doughnut',
           data: {
@@ -149,13 +245,14 @@ function renderReports(area, actions) {
               backgroundColor: catEntries.map(c => CAT_COLORS[c[0]] || '#636e72'),
               borderWidth: 3,
               borderColor: bg2,
-              hoverOffset: 8,
+              hoverOffset: 6,
             }],
           },
           options: {
             responsive: true,
             maintainAspectRatio: false,
-            cutout: '68%',
+            cutout: '62%',
+            layout: { padding: { top: 16, right: 90, bottom: 16, left: 90 } },
             plugins: {
               legend: { display: false },
               tooltip: {
@@ -169,6 +266,7 @@ function renderReports(area, actions) {
               },
             },
           },
+          plugins: [leaderLinesPlugin],
         })
       }
     }

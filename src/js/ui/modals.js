@@ -859,11 +859,23 @@ function setAccountDisplay(displayId, accId, placeholder) {
 
 // ── 2-step account picker (category → account) ─────────────────────────
 let _pickerTarget = 'from'; // 'from' | 'to' | 'scan'
-let _pickerCategory = null;
+
+// Account picker state — Set of expanded category names
+const _pickerExpanded = new Set();
 
 function openAccountPicker(target) {
   _pickerTarget = target;
-  _pickerCategory = null;
+  // On open, auto-expand first group if nothing expanded
+  if (_pickerExpanded.size === 0) {
+    const groups = {};
+    state.accounts.forEach(a => {
+      const cat = a.category || 'Lainnya';
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(a);
+    });
+    const firstCat = Object.keys(groups)[0];
+    if (firstCat) _pickerExpanded.add(firstCat);
+  }
   renderAccountPicker();
   document.getElementById('account-picker-modal')?.classList.add('open');
 }
@@ -880,44 +892,39 @@ function renderAccountPicker() {
     groups[cat].push(a);
   });
 
-  let bodyHtml;
-  if (!_pickerCategory) {
-    // Step 1: choose category
-    bodyHtml = `
-      <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Pilih kategori rekening:</div>
-      <div class="picker-cat-list">
-        ${Object.entries(groups).map(([cat, accs]) => {
-          const total = accs.reduce((s,a)=>s+Number(a.balance), 0);
-          return `<div class="picker-cat-item" onclick="pickerSelectCategory('${cat.replace(/'/g,'')}')">
-            <div style="flex:1">
-              <div class="picker-cat-name">📂 ${cat}</div>
-              <div class="picker-cat-sub">${accs.length} rekening · ${fmtShort(total)}</div>
+  const bodyHtml = `
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Pilih rekening:</div>
+    <div class="picker-cat-list">
+      ${Object.entries(groups).map(([cat, accs]) => {
+        const total = accs.reduce((s,a)=>s+Number(a.balance), 0);
+        const expanded = _pickerExpanded.has(cat);
+        const catEscaped = cat.replace(/'/g,"\\'").replace(/"/g,'&quot;');
+        return `
+          <div class="picker-group ${expanded?'expanded':''}">
+            <div class="picker-group-header" onclick="pickerToggleCategory('${catEscaped}')">
+              <div style="flex:1;min-width:0">
+                <div class="picker-cat-name">📂 ${cat}</div>
+                <div class="picker-cat-sub">${accs.length} rekening · ${fmtShort(total)}</div>
+              </div>
+              <span class="picker-group-chevron">›</span>
             </div>
-            <span style="color:var(--text3);font-size:18px">›</span>
-          </div>`;
-        }).join('')}
-      </div>
-    `;
-  } else {
-    // Step 2: choose account within category
-    const accs = groups[_pickerCategory] || [];
-    bodyHtml = `
-      <button class="btn btn-ghost btn-sm" style="margin-bottom:12px" onclick="pickerBack()">‹ Kembali ke kategori</button>
-      <div style="font-size:12px;color:var(--text2);margin-bottom:12px">📂 ${_pickerCategory}</div>
-      <div class="picker-acct-list">
-        ${accs.map(a => `
-          <div class="picker-acct-item" onclick="pickerSelectAccount('${a.id}')" style="border-left:3px solid ${a.color||'var(--accent)'}">
-            <div class="picker-acct-icon">${a.icon || BANK_ICONS[a.bank] || '💳'}</div>
-            <div style="flex:1">
-              <div class="picker-acct-name">${a.name}</div>
-              <div class="picker-acct-bank">${a.bank}</div>
+            <div class="picker-group-body">
+              ${accs.map(a => `
+                <div class="picker-acct-item" onclick="pickerSelectAccount('${a.id}')" style="border-left:3px solid ${a.color||'var(--accent)'}">
+                  <div class="picker-acct-icon">${a.icon || BANK_ICONS[a.bank] || '💳'}</div>
+                  <div style="flex:1;min-width:0">
+                    <div class="picker-acct-name">${a.name}</div>
+                    <div class="picker-acct-bank">${a.bank}</div>
+                  </div>
+                  <div class="picker-acct-bal" style="color:${a.color||'var(--accent)'}">${fmtShort(a.balance)}</div>
+                </div>
+              `).join('')}
             </div>
-            <div class="picker-acct-bal" style="color:${a.color||'var(--accent)'}">${fmtShort(a.balance)}</div>
           </div>
-        `).join('')}
-      </div>
-    `;
-  }
+        `;
+      }).join('')}
+    </div>
+  `;
 
   modal.innerHTML = `
     <div class="sheet">
@@ -931,13 +938,9 @@ function renderAccountPicker() {
   `;
 }
 
-function pickerSelectCategory(cat) {
-  _pickerCategory = cat;
-  renderAccountPicker();
-}
-
-function pickerBack() {
-  _pickerCategory = null;
+function pickerToggleCategory(cat) {
+  if (_pickerExpanded.has(cat)) _pickerExpanded.delete(cat);
+  else _pickerExpanded.add(cat);
   renderAccountPicker();
 }
 
@@ -962,23 +965,138 @@ function closeAccountPicker() {
 }
 
 window.openAccountPicker    = openAccountPicker;
-window.pickerSelectCategory = pickerSelectCategory;
-window.pickerBack           = pickerBack;
+window.pickerToggleCategory = pickerToggleCategory;
 window.pickerSelectAccount  = pickerSelectAccount;
 window.closeAccountPicker   = closeAccountPicker;
 
-function populateTxCategories(selCat) {
+// ===== CATEGORY PICKER (consistent accordion UI with account picker) =====
+const _catPickerExpanded = new Set();
+
+function openCatPicker() {
+  // Auto-expand first group on first open
+  if (_catPickerExpanded.size === 0) {
+    const type = txType === 'income' ? 'income' : 'expense';
+    const groups = getCatGroups(type);
+    const firstGrp = Object.keys(groups)[0];
+    if (firstGrp) _catPickerExpanded.add(firstGrp);
+  }
+  renderCatPicker();
+  document.getElementById('cat-picker-modal')?.classList.add('open');
+}
+
+function renderCatPicker() {
+  const modal = document.getElementById('cat-picker-modal');
+  if (!modal) return;
   const type = txType === 'income' ? 'income' : 'expense';
   const groups = getCatGroups(type);
-  const sel = document.getElementById('tx-category');
-  sel.innerHTML = Object.entries(groups).map(([grp, cats]) =>
-    `<optgroup label="${grp}">` +
-    cats.map(c => {
-      const full = c.icon+' '+c.name;
-      return `<option value="${full}" ${full===selCat||c.name===selCat?'selected':''}>${full}</option>`;
-    }).join('') +
-    `</optgroup>`
-  ).join('');
+  const currentVal = document.getElementById('tx-category')?.value || '';
+
+  const bodyHtml = `
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Pilih kategori ${type==='income'?'pemasukan':'pengeluaran'}:</div>
+    <div class="picker-cat-list">
+      ${Object.entries(groups).map(([grp, cats]) => {
+        const expanded = _catPickerExpanded.has(grp);
+        const grpEscaped = grp.replace(/'/g,"\\'").replace(/"/g,'&quot;');
+        return `
+          <div class="picker-group ${expanded?'expanded':''}">
+            <div class="picker-group-header" onclick="catPickerToggleGroup('${grpEscaped}')">
+              <div style="flex:1;min-width:0">
+                <div class="picker-cat-name">📁 ${grp}</div>
+                <div class="picker-cat-sub">${cats.length} kategori</div>
+              </div>
+              <span class="picker-group-chevron">›</span>
+            </div>
+            <div class="picker-group-body">
+              ${cats.map(c => {
+                const full = c.icon + ' ' + c.name;
+                const selected = full === currentVal;
+                const fullEscaped = full.replace(/'/g,"\\'");
+                return `
+                  <div class="picker-cat-item-row ${selected?'selected':''}" onclick="catPickerSelect('${fullEscaped}')">
+                    <div class="picker-cat-emoji">${c.icon}</div>
+                    <div class="picker-cat-itemname">${c.name}</div>
+                    <div class="picker-cat-radio ${selected?'on':''}"></div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+
+  modal.innerHTML = `
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-head">
+        <div class="sheet-title">Pilih Kategori</div>
+        <button class="sheet-close" onclick="closeCatPicker()">✕</button>
+      </div>
+      <div class="sheet-body">${bodyHtml}</div>
+    </div>
+  `;
+}
+
+function catPickerToggleGroup(grp) {
+  if (_catPickerExpanded.has(grp)) _catPickerExpanded.delete(grp);
+  else _catPickerExpanded.add(grp);
+  renderCatPicker();
+}
+
+function catPickerSelect(full) {
+  // Set hidden input value
+  const inp = document.getElementById('tx-category');
+  if (inp) inp.value = full;
+  // Update display
+  setCategoryDisplay(full);
+  closeCatPicker();
+}
+
+function setCategoryDisplay(full) {
+  const display = document.getElementById('tx-category-display');
+  if (!display) return;
+  if (!full) {
+    display.innerHTML = `
+      <span class="acct-display-content">
+        <span class="acct-display-emoji">📂</span>
+        <span class="acct-display-text" style="color:var(--text3)">Pilih kategori</span>
+      </span>
+      <span class="acct-display-chevron">›</span>
+    `;
+    return;
+  }
+  // Extract emoji prefix and name
+  const m = full.match(/^(\S+)\s+(.+)$/);
+  const emoji = m ? m[1] : '📂';
+  const name = m ? m[2] : full;
+  display.innerHTML = `
+    <span class="acct-display-content">
+      <span class="acct-display-emoji">${emoji}</span>
+      <span class="acct-display-text">${name}</span>
+    </span>
+    <span class="acct-display-chevron">›</span>
+  `;
+}
+
+function closeCatPicker() {
+  document.getElementById('cat-picker-modal')?.classList.remove('open');
+}
+
+window.openCatPicker = openCatPicker;
+window.catPickerToggleGroup = catPickerToggleGroup;
+window.catPickerSelect = catPickerSelect;
+window.closeCatPicker = closeCatPicker;
+
+// Update the category display button (called from populateTxCategories)
+function populateTxCategories(selCat) {
+  // Set hidden input value
+  const inp = document.getElementById('tx-category');
+  if (inp) inp.value = selCat || '';
+  // Update the visible display
+  setCategoryDisplay(selCat || '');
+  // Reset accordion state when opening fresh form
+  if (!selCat) _catPickerExpanded.clear();
 }
 
 async function saveTx() {

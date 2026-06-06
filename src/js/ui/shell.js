@@ -12,7 +12,7 @@ function getShellHTML() {
   <aside class="sidebar">
     <div class="sidebar-header">
       <div class="sidebar-logo">
-        <div class="logo-mark">D</div>
+        <div class="logo-mark"><img src="/icon.svg" alt="duit.io" width="32" height="32"/></div>
         <div class="logo-text">duit<span>.io</span></div>
       </div>
     </div>
