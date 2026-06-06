@@ -1383,3 +1383,37 @@ input[type="date"] {
   background: #fff;
   border-radius: 50%;
 }
+
+/* ===== REPORTS PERIOD SELECTOR ===== */
+.period-selector {
+  display: flex; flex-direction: column; gap: 10px;
+  margin-bottom: 4px;
+}
+.period-chips {
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+.period-custom {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px;
+  background: var(--bg3);
+  border-radius: 10px;
+}
+.period-custom input[type="month"] {
+  flex: 1;
+  background: var(--bg4);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 7px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  outline: none;
+  font-family: inherit;
+}
+.period-custom input[type="month"]:focus {
+  border-color: var(--accent);
+}
+
+@media (max-width: 480px) {
+  .period-custom { flex-direction: column; align-items: stretch }
+  .period-custom span { text-align: center }
+}
