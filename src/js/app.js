@@ -10,6 +10,7 @@ import { navigate, registerPage } from './lib/router.js'
 import { showToast }       from './lib/toast.js'
 import { applyTheme, initTheme, toggleTheme } from './ui/theme.js'
 import { renderAppShell }  from './ui/shell.js'
+import { onLangChange }    from './lib/i18n.js'
 import { initCamera }      from './ui/camera.js'
 import { initModals }      from './ui/modals.js'
 
@@ -115,6 +116,16 @@ function showApp() {
   }
 
   initNotifScheduler()
+
+  // Re-render shell + current page whenever language changes
+  onLangChange(() => {
+    renderAppShell()
+    if (nameEl) document.getElementById('sidebar-name').textContent = meta.full_name || 'Pengguna'
+    if (emailEl) document.getElementById('sidebar-email').textContent = state.currentUser.email
+    applyTheme(localStorage.getItem('theme') || 'dark')
+    navigate(state.currentPage || 'dashboard')
+  })
+
   navigate('dashboard')
 }
 

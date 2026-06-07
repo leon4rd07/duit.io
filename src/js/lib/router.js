@@ -2,23 +2,15 @@
 // ── Client-side router ────────────────────────────────────────────────
 import { state }      from './store.js'
 import { PAGE_TITLES } from './config.js'
+import { t }          from './i18n.js'
 
 // Lazy-loaded page renderers — registered by each page module
 const _renderers = {}
 
-/**
- * Register a page renderer
- * @param {string} page
- * @param {function(area: HTMLElement, actions: HTMLElement): void} fn
- */
 export function registerPage(page, fn) {
   _renderers[page] = fn
 }
 
-/**
- * Navigate to a page
- * @param {string} page
- */
 export function navigate(page) {
   state.currentPage = page
 
@@ -27,9 +19,14 @@ export function navigate(page) {
     el.classList.toggle('active', el.dataset.page === page)
   )
 
-  // Update title
+  // Update title — prefer i18n key, fall back to PAGE_TITLES, then page id
   const titleEl = document.getElementById('page-title')
-  if (titleEl) titleEl.textContent = PAGE_TITLES[page] || page
+  if (titleEl) {
+    const i18nKey = `nav.${page}`
+    const i18nTitle = t(i18nKey)
+    // If translation returned the key itself, it's missing → fall back to PAGE_TITLES
+    titleEl.textContent = (i18nTitle !== i18nKey) ? i18nTitle : (PAGE_TITLES[page] || page)
+  }
 
   // Clear topbar actions
   const actionsEl = document.getElementById('topbar-actions')

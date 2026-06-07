@@ -5,6 +5,7 @@ import { showToast } from '../lib/toast.js'
 import { navigate }  from '../lib/router.js'
 import { signOut, db } from '../lib/supabase.js'
 import { CURRENCIES } from '../lib/config.js'
+import { t, getLang, setLang } from '../lib/i18n.js'
 
 function renderSettings(area, actions) {
   actions.innerHTML = ''
@@ -12,6 +13,7 @@ function renderSettings(area, actions) {
   const meta = user?.user_metadata || {}
   const hideTotal = localStorage.getItem('hide_total_balance') === '1'
   const theme = localStorage.getItem('theme') || 'dark'
+  const lang = getLang()
 
   area.innerHTML = `
     <!-- Profile -->
@@ -60,11 +62,22 @@ function renderSettings(area, actions) {
     </div>
 
     <div class="card mb-16">
-      <div class="settings-header">💱 Mata Uang</div>
+      <div class="settings-header">💱 ${t('label.currency')}</div>
       <div class="settings-row" onclick="openCurrencyPicker()">
         <div>
-          <div class="settings-row-title">Mata Uang Tampilan</div>
+          <div class="settings-row-title">${t('label.currency')}</div>
           <div class="settings-row-desc">${(CURRENCIES.find(c => c.code === (localStorage.getItem('currency') || 'IDR')) || CURRENCIES[0]).symbol} ${(CURRENCIES.find(c => c.code === (localStorage.getItem('currency') || 'IDR')) || CURRENCIES[0]).name}</div>
+        </div>
+        <div style="font-size:18px;color:var(--text3)">›</div>
+      </div>
+    </div>
+
+    <div class="card mb-16">
+      <div class="settings-header">🌐 ${t('label.language')}</div>
+      <div class="settings-row" onclick="openLanguagePicker()">
+        <div>
+          <div class="settings-row-title">${t('label.language')}</div>
+          <div class="settings-row-desc">${lang === 'en' ? '🇬🇧 English' : '🇮🇩 Indonesia'}</div>
         </div>
         <div style="font-size:18px;color:var(--text3)">›</div>
       </div>
@@ -245,10 +258,41 @@ function selectCurrency(code) {
   navigate('settings')
 }
 
+// ── Language picker ─────────────────────────────────────────────────────
+function openLanguagePicker() {
+  const modal = document.getElementById('currency-modal') // reuse currency modal shell
+  if (!modal) return
+  const current = getLang()
+  const langs = [
+    { code: 'id', label: 'Indonesia', flag: '🇮🇩' },
+    { code: 'en', label: 'English',   flag: '🇬🇧' },
+  ]
+  modal.querySelector('.sheet-title').textContent = t('st.lang.choose')
+  modal.querySelector('.sheet-body').innerHTML = langs.map(l => `
+    <div class="settings-row" onclick="selectLanguage('${l.code}')" style="cursor:pointer">
+      <div>
+        <div class="settings-row-title">${l.flag} ${l.label}</div>
+        <div class="settings-row-desc">${l.code === 'id' ? 'Indonesian' : 'English'}</div>
+      </div>
+      ${l.code === current ? '<div style="color:var(--accent);font-size:18px">✓</div>' : ''}
+    </div>
+  `).join('')
+  modal.classList.add('open')
+}
+
+function selectLanguage(code) {
+  setLang(code)
+  document.getElementById('currency-modal').classList.remove('open')
+  showToast(t('toast.lang_changed', { lang: code === 'en' ? 'English' : 'Indonesia' }))
+  // onLangChange in app.js will re-render shell + current page automatically
+}
+
 export { renderSettings }
 
 window.openCurrencyPicker   = openCurrencyPicker
 window.selectCurrency       = selectCurrency
+window.openLanguagePicker   = openLanguagePicker
+window.selectLanguage       = selectLanguage
 window.settingsToggleHide   = settingsToggleHide
 window.openEditName         = openEditName
 window.openChangePassword   = openChangePassword
