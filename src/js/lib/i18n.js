@@ -83,3 +83,33 @@ export function t(key, vars) {
 
 // Initialize document lang attribute on load
 try { document.documentElement.lang = _currentLang } catch {}
+
+/**
+ * Scan a DOM root and translate all elements with data-i18n attributes.
+ *
+ *   <label data-i18n="label.name">Nama</label>
+ *   <input data-i18n-placeholder="auth.email_placeholder" placeholder="..."/>
+ *   <span data-i18n-title="btn.delete" title="..."></span>
+ *
+ * Call after rendering and again on language change.
+ * @param {Element|Document} [root]
+ */
+export function translateDOM(root = document) {
+  if (!root || typeof root.querySelectorAll !== 'function') return
+  root.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n')
+    if (key) el.textContent = t(key)
+  })
+  root.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    const key = el.getAttribute('data-i18n-placeholder')
+    if (key) el.setAttribute('placeholder', t(key))
+  })
+  root.querySelectorAll('[data-i18n-title]').forEach(el => {
+    const key = el.getAttribute('data-i18n-title')
+    if (key) el.setAttribute('title', t(key))
+  })
+  root.querySelectorAll('[data-i18n-aria-label]').forEach(el => {
+    const key = el.getAttribute('data-i18n-aria-label')
+    if (key) el.setAttribute('aria-label', t(key))
+  })
+}

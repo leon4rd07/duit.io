@@ -114,57 +114,57 @@
   <div class="modal">
     <div class="modal-handle"></div>
     <div class="modal-header">
-      <div class="modal-title">Transaksi Baru</div>
+      <div class="modal-title" data-i18n="tx.new">Transaksi Baru</div>
       <div class="modal-close" onclick="closeTxModal()">✕</div>
     </div>
     <div class="modal-body">
       <div class="type-toggle" id="tx-type-toggle">
-        <div class="type-btn" onclick="setTxType('expense')">Pengeluaran</div>
-        <div class="type-btn" onclick="setTxType('income')">Pemasukan</div>
-        <div class="type-btn" onclick="setTxType('transfer')">Transfer</div>
+        <div class="type-btn" onclick="setTxType('expense')" data-i18n="tx.expense">Pengeluaran</div>
+        <div class="type-btn" onclick="setTxType('income')" data-i18n="tx.income">Pemasukan</div>
+        <div class="type-btn" onclick="setTxType('transfer')" data-i18n="tx.transfer">Transfer</div>
       </div>
       <div class="field">
-        <label>Jumlah (Rp)</label>
+        <label data-i18n="tx.amount">Jumlah (Rp)</label>
         <input type="text" inputmode="numeric" class="money-input" id="tx-amount" placeholder="0" min="0"/>
       </div>
       <div class="field-row">
         <div class="field">
-          <label>Rekening</label>
+          <label data-i18n="label.account">Rekening</label>
           <button type="button" class="acct-picker-btn" id="tx-account-btn" onclick="openAccountPicker('from')">
-            <span id="tx-account-display">Pilih rekening</span>
+            <span id="tx-account-display" data-i18n="tx.choose_account">Pilih rekening</span>
             <span style="color:var(--text3)">›</span>
           </button>
           <input type="hidden" id="tx-account"/>
         </div>
         <div class="field" id="tx-toac-wrap" style="display:none">
-          <label>Ke Rekening</label>
+          <label data-i18n="tx.to_account">Ke Rekening</label>
           <button type="button" class="acct-picker-btn" id="tx-to-account-btn" onclick="openAccountPicker('to')">
-            <span id="tx-to-account-display">Pilih rekening tujuan</span>
+            <span id="tx-to-account-display" data-i18n="tx.choose_to_account">Pilih rekening tujuan</span>
             <span style="color:var(--text3)">›</span>
           </button>
           <input type="hidden" id="tx-to-account"/>
         </div>
         <div class="field" id="tx-cat-wrap">
-          <label>Kategori</label>
+          <label data-i18n="label.category">Kategori</label>
           <input type="hidden" id="tx-category"/>
           <div class="cat-inline-picker" id="tx-cat-grid"></div>
         </div>
       </div>
       <div class="field">
-        <label>Keterangan</label>
-        <input type="text" id="tx-note" placeholder="mis. Makan siang, Gojek..."/>
+        <label data-i18n="label.note">Keterangan</label>
+        <input type="text" id="tx-note" data-i18n-placeholder="tx.note_placeholder" placeholder="mis. Makan siang, Gojek..."/>
       </div>
       <div class="field">
-        <label>Tanggal</label>
+        <label data-i18n="label.date">Tanggal</label>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-          <button type="button" class="date-quick-btn" onclick="setTxDateQuick('today')">Hari ini</button>
-          <button type="button" class="date-quick-btn" onclick="setTxDateQuick('yesterday')">Kemarin</button>
-          <button type="button" class="date-quick-btn" onclick="setTxDateQuick(-2)">2 hari lalu</button>
-          <button type="button" class="date-quick-btn" onclick="setTxDateQuick(-7)">1 minggu lalu</button>
+          <button type="button" class="date-quick-btn" onclick="setTxDateQuick('today')" data-i18n="label.today">Hari ini</button>
+          <button type="button" class="date-quick-btn" onclick="setTxDateQuick('yesterday')" data-i18n="label.yesterday">Kemarin</button>
+          <button type="button" class="date-quick-btn" onclick="setTxDateQuick(-2)" data-i18n="date.2_days_ago">2 hari lalu</button>
+          <button type="button" class="date-quick-btn" onclick="setTxDateQuick(-7)" data-i18n="date.1_week_ago">1 minggu lalu</button>
         </div>
         <input type="date" id="tx-date"/>
       </div>
-      <button class="btn btn-accent" style="width:100%;justify-content:center;padding:13px" onclick="saveTx()" id="save-tx-btn">Simpan Transaksi</button>
+      <button class="btn btn-accent" style="width:100%;justify-content:center;padding:13px" onclick="saveTx()" id="save-tx-btn" data-i18n="tx.save">Simpan Transaksi</button>
     </div>
   </div>
 </div>
@@ -177,40 +177,40 @@
   <div class="sheet">
     <div class="sheet-handle"></div>
     <div class="sheet-head">
-      <div class="sheet-title" id="acct-modal-title">Tambah Rekening</div>
+      <div class="sheet-title" id="acct-modal-title" data-i18n="acct.add_title">Tambah Rekening</div>
       <button class="sheet-close" onclick="closeSheet('account-modal')">✕</button>
     </div>
     <div class="sheet-body">
 
       <div class="field">
-        <label>Nama Rekening</label>
+        <label data-i18n="acct.name">Nama Rekening</label>
         <input type="text" id="acct-name" placeholder="mis. BCA Utama, SeaBank Harian, GoPay" oninput="updateAccountPreview()"/>
       </div>
 
       <!-- Tipe Rekening -->
       <div class="field">
-        <label>Tipe Rekening</label>
+        <label data-i18n="acct.type">Tipe Rekening</label>
         <div id="acct-type-picker" style="display:flex;gap:6px;flex-wrap:wrap"></div>
       </div>
 
       <!-- Kategori (custom) -->
       <div class="field">
         <label style="display:flex;align-items:center;justify-content:space-between">
-          <span>Kategori</span>
-          <span style="font-size:11px;color:var(--accent);cursor:pointer;font-weight:600" onclick="toggleCustomCatInput()">+ Buat kategori baru</span>
+          <span data-i18n="label.category">Kategori</span>
+          <span style="font-size:11px;color:var(--accent);cursor:pointer;font-weight:600" onclick="toggleCustomCatInput()">+ <span data-i18n="acct.add_custom_cat">Buat kategori baru</span></span>
         </label>
         <div id="acct-cat-picker" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div>
         <div id="custom-cat-wrap" style="display:none">
           <input type="text" id="custom-cat-input" placeholder="Nama kategori baru..."
             style="width:100%;background:var(--bg3);border:1px solid var(--accent);border-radius:9px;padding:9px 13px;color:var(--text);font-size:13px;outline:none;margin-top:4px"
             onkeydown="if(event.key==='Enter')addCustomCategory()"/>
-          <button class="btn btn-accent btn-sm" style="margin-top:6px" onclick="addCustomCategory()">Tambah Kategori</button>
+          <button class="btn btn-accent btn-sm" style="margin-top:6px" onclick="addCustomCategory()" data-i18n="acct.add_custom_cat">Tambah Kategori</button>
         </div>
       </div>
 
       <!-- Bank / Dompet -->
       <div class="field">
-        <label>Bank / Dompet</label>
+        <label data-i18n="label.bank">Bank / Dompet</label>
         <div class="pick-grid" id="bank-picker"></div>
         <div id="custom-bank-wrap" style="display:none;margin-top:10px">
           <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.3px">Nama Bank / Dompet</div>
@@ -222,13 +222,13 @@
 
       <!-- Emoji / Icon -->
       <div class="field">
-        <label>Ikon Rekening <span style="color:var(--text3);font-weight:400;font-size:11px">(pilih manual)</span></label>
+        <label><span data-i18n="acct.icon">Ikon Rekening</span> <span style="color:var(--text3);font-weight:400;font-size:11px" data-i18n="acct.icon_hint">(pilih manual)</span></label>
         <div id="emoji-grid" style="display:flex;flex-wrap:wrap;gap:6px;background:var(--bg3);border-radius:10px;padding:10px;border:1px solid var(--border)"></div>
       </div>
 
       <!-- Warna -->
       <div class="field">
-        <label>Warna Rekening</label>
+        <label data-i18n="acct.color">Warna Rekening</label>
         <div id="acct-color-picker" style="display:flex;gap:8px;flex-wrap:wrap"></div>
       </div>
 
@@ -243,18 +243,18 @@
         <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px">Preview Kartu</div>
         <div style="border-top:3px solid var(--accent);background:var(--bg2);border-radius:10px;padding:14px 16px" id="acct-preview-card">
           <div style="font-size:11px;color:var(--text2);margin-bottom:4px" id="prev-bank-label">🏦 BCA</div>
-          <div style="font-size:14px;font-weight:600;margin-bottom:6px" id="prev-name">Nama Rekening</div>
+          <div style="font-size:14px;font-weight:600;margin-bottom:6px" id="prev-name" data-i18n="acct.preview_name">Nama Rekening</div>
           <div style="font-size:18px;font-weight:700;color:var(--accent)" id="prev-balance">Rp 0</div>
           <div style="margin-top:8px;display:flex;gap:6px" id="prev-badges"></div>
         </div>
       </div>
 
       <div class="sheet-actions">
-        <button class="btn btn-ghost" onclick="closeSheet('account-modal')">Batal</button>
-        <button class="btn btn-accent" onclick="submitAccountModal()" id="acct-submit-btn">Simpan Rekening</button>
+        <button class="btn btn-ghost" onclick="closeSheet('account-modal')" data-i18n="btn.cancel">Batal</button>
+        <button class="btn btn-accent" onclick="submitAccountModal()" id="acct-submit-btn" data-i18n="acct.save">Simpan Rekening</button>
       </div>
       <div style="margin-top:12px;display:none" id="acct-delete-wrap">
-        <button class="btn btn-danger" style="width:100%;justify-content:center" onclick="deleteAccountFromModal()">🗑️ Hapus Rekening Ini</button>
+        <button class="btn btn-danger" style="width:100%;justify-content:center" onclick="deleteAccountFromModal()" data-i18n="acct.delete">🗑️ Hapus Rekening Ini</button>
       </div>
     </div>
   </div>

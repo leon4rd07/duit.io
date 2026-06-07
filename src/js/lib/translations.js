@@ -99,6 +99,31 @@ export const translations = {
     'tx.delete_confirm_short': 'Hapus transaksi ini?',
     'tx.deleted':      'Transaksi dihapus ✓',
     'tx.delete_fail':  'Gagal menghapus: {error}',
+    'tx.save':         'Simpan Transaksi',
+    'tx.to_account':   'Ke Rekening',
+    'tx.choose_account': 'Pilih rekening',
+    'tx.choose_to_account': 'Pilih rekening tujuan',
+    'tx.amount':       'Jumlah (Rp)',
+    'tx.note_placeholder': 'mis. Makan siang, Gojek...',
+    'date.2_days_ago': '2 hari lalu',
+    'date.1_week_ago': '1 minggu lalu',
+
+    // ── Account modal ──────────────────────────────────────
+    'acct.add_title':     'Tambah Rekening',
+    'acct.edit_title':    'Edit Rekening',
+    'acct.name':          'Nama Rekening',
+    'acct.type':          'Tipe Rekening',
+    'acct.icon':          'Ikon Rekening',
+    'acct.icon_hint':     '(pilih manual)',
+    'acct.color':         'Warna Rekening',
+    'acct.save':          'Simpan Rekening',
+    'acct.delete':        '🗑️ Hapus Rekening Ini',
+    'acct.preview_name':  'Nama Rekening',
+    'acct.add_custom_cat':'Tambah Kategori',
+
+    // ── Budget modal ───────────────────────────────────────
+    'budget.add_title':   'Tambah Anggaran',
+    'budget.edit_title':  'Edit Anggaran',
 
     // ── Dashboard ──────────────────────────────────────────
     'dash.total_balance':    'Saldo Total',
@@ -299,6 +324,31 @@ export const translations = {
     'tx.delete_confirm_short': 'Delete this transaction?',
     'tx.deleted':      'Transaction deleted ✓',
     'tx.delete_fail':  'Failed to delete: {error}',
+    'tx.save':         'Save Transaction',
+    'tx.to_account':   'To Account',
+    'tx.choose_account': 'Choose account',
+    'tx.choose_to_account': 'Choose destination account',
+    'tx.amount':       'Amount (Rp)',
+    'tx.note_placeholder': 'e.g. Lunch, Uber...',
+    'date.2_days_ago': '2 days ago',
+    'date.1_week_ago': '1 week ago',
+
+    // ── Account modal ──────────────────────────────────────
+    'acct.add_title':     'Add Account',
+    'acct.edit_title':    'Edit Account',
+    'acct.name':          'Account Name',
+    'acct.type':          'Account Type',
+    'acct.icon':          'Account Icon',
+    'acct.icon_hint':     '(pick manually)',
+    'acct.color':         'Account Color',
+    'acct.save':          'Save Account',
+    'acct.delete':        '🗑️ Delete This Account',
+    'acct.preview_name':  'Account Name',
+    'acct.add_custom_cat':'Add Category',
+
+    // ── Budget modal ───────────────────────────────────────
+    'budget.add_title':   'Add Budget',
+    'budget.edit_title':  'Edit Budget',
 
     // ── Dashboard ──────────────────────────────────────────
     'dash.total_balance':    'Total Balance',

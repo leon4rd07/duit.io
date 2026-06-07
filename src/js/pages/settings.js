@@ -239,7 +239,15 @@ function openCurrencyPicker() {
   const current = localStorage.getItem('currency') || 'IDR'
   const modal = document.getElementById('currency-modal')
   if (!modal) return
-  document.getElementById('currency-list').innerHTML = CURRENCIES.map(c => `
+
+  // Defensive: always rebuild title + body from scratch so neither picker
+  // can leave the modal in an inconsistent state for the other.
+  const titleEl = modal.querySelector('.sheet-title')
+  const bodyEl  = modal.querySelector('.sheet-body')
+  if (!titleEl || !bodyEl) return
+
+  titleEl.textContent = t('st.currency.choose')
+  bodyEl.innerHTML = CURRENCIES.map(c => `
     <div class="settings-row" onclick="selectCurrency('${c.code}')" style="cursor:pointer">
       <div>
         <div class="settings-row-title">${c.symbol} ${c.name}</div>
@@ -253,22 +261,28 @@ function openCurrencyPicker() {
 
 function selectCurrency(code) {
   localStorage.setItem('currency', code)
-  document.getElementById('currency-modal').classList.remove('open')
-  showToast('Mata uang diubah ✓')
+  const modal = document.getElementById('currency-modal')
+  if (modal) modal.classList.remove('open')
+  showToast(t('toast.saved'))
   navigate('settings')
 }
 
-// ── Language picker ─────────────────────────────────────────────────────
+// ── Language picker (reuses currency-modal shell, rebuilds body fully) ──
 function openLanguagePicker() {
-  const modal = document.getElementById('currency-modal') // reuse currency modal shell
+  const modal = document.getElementById('currency-modal')
   if (!modal) return
+
+  const titleEl = modal.querySelector('.sheet-title')
+  const bodyEl  = modal.querySelector('.sheet-body')
+  if (!titleEl || !bodyEl) return
+
   const current = getLang()
   const langs = [
     { code: 'id', label: t('st.lang.id_native'), sublabel: t('st.lang.id') },
     { code: 'en', label: t('st.lang.en_native'), sublabel: t('st.lang.en') },
   ]
-  modal.querySelector('.sheet-title').textContent = t('st.lang.choose')
-  modal.querySelector('.sheet-body').innerHTML = langs.map(l => `
+  titleEl.textContent = t('st.lang.choose')
+  bodyEl.innerHTML = langs.map(l => `
     <div class="settings-row" onclick="selectLanguage('${l.code}')" style="cursor:pointer">
       <div>
         <div class="settings-row-title"><span class="lang-badge ${l.code}">${l.code.toUpperCase()}</span> ${l.label}</div>
@@ -282,7 +296,8 @@ function openLanguagePicker() {
 
 function selectLanguage(code) {
   setLang(code)
-  document.getElementById('currency-modal').classList.remove('open')
+  const modal = document.getElementById('currency-modal')
+  if (modal) modal.classList.remove('open')
   showToast(t('toast.lang_changed', { lang: code === 'en' ? 'English' : 'Indonesia' }))
   // onLangChange in app.js will re-render shell + current page automatically
 }
