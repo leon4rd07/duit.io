@@ -7,7 +7,7 @@ import { navigate } from '../lib/router.js'
 import { fmt, fmtShort, fmtDate, monthKey, monthLabel } from '../lib/utils.js'
 import { getCatObj, CAT_COLORS } from '../lib/categories.js'
 import { AVATAR_COLORS, BANK_ICONS} from '../lib/config.js'
-import { leaderLinesPlugin } from '../ui/charts.js'
+import { t } from '../lib/i18n.js'
 
 function isBalHidden(id) { try { if (localStorage.getItem('hide_total_balance')==='1') return true; const p = JSON.parse(localStorage.getItem('acct_prefs_v1')||'{}'); return p[`hide_bal_${id}`]===true } catch { return false } }
 function maskIf(hidden, str) { return hidden ? '••••••' : str }
@@ -50,52 +50,44 @@ function renderDashboard(area, actions) {
   area.innerHTML = `
     <div class="summary-grid mb-16">
       <div class="summary-card">
-        <div class="stat-label">Saldo Total</div>
+        <div class="stat-label">${t('dash.total_balance')}</div>
         <div class="stat-value accent" style="font-size:18px">${isBalHidden('total') ? '••••' : fmtShort(totalBalance)}</div>
       </div>
       <div class="summary-card">
-        <div class="stat-label">Pemasukan</div>
+        <div class="stat-label">${t('dash.income')}</div>
         <div class="stat-value positive" style="font-size:18px">${isBalHidden('total') ? '••••' : fmtShort(income)}</div>
       </div>
       <div class="summary-card">
-        <div class="stat-label">Pengeluaran</div>
+        <div class="stat-label">${t('dash.expense')}</div>
         <div class="stat-value negative" style="font-size:18px">${isBalHidden('total') ? '••••' : fmtShort(expense)}</div>
       </div>
     </div>
 
     <div class="grid-2 mb-16">
       <div class="card">
-        <div class="section-title mb-12">Pengeluaran per Kategori</div>
-        ${catEntries.length ? `
-          <div class="donut-wrap" style="height:240px;margin:0 -8px">
-            <canvas id="cat-chart"></canvas>
-            <div class="donut-center">
-              <div class="donut-center-label">Total Keluar</div>
-              <div class="donut-center-value">${fmtShort(catEntries.reduce((s,c)=>s+c[1],0))}</div>
-            </div>
-          </div>
-        ` : `<div class="empty-state" style="padding:20px"><div class="empty-icon">📂</div><p>Belum ada data</p></div>`}
+        <div class="section-title mb-12">${t('dash.cat_by_spending')}</div>
+        ${catEntries.length ? `<div class="chart-wrap" style="height:180px"><canvas id="cat-chart"></canvas></div>` : `<div class="empty-state" style="padding:20px"><div class="empty-icon">📂</div><p>${t('dash.empty_data')}</p></div>`}
       </div>
       <div class="card">
-        <div class="section-title mb-12">Arus Kas Harian</div>
-        <div class="chart-wrap" style="height:240px"><canvas id="daily-chart"></canvas></div>
+        <div class="section-title mb-12">${t('dash.daily_cashflow')}</div>
+        <div class="chart-wrap" style="height:180px"><canvas id="daily-chart"></canvas></div>
       </div>
     </div>
 
     <div class="card mb-16">
       <div class="flex items-center justify-between mb-12">
-        <div class="section-title" style="margin:0">Transaksi Terbaru</div>
-        <button class="btn btn-ghost btn-sm" onclick="navigate('transactions')">Lihat semua →</button>
+        <div class="section-title" style="margin:0">${t('dash.recent_tx')}</div>
+        <button class="btn btn-ghost btn-sm" onclick="navigate('transactions')">${t('btn.see_all')} →</button>
       </div>
       <div class="recent-list">
-        ${recent.length ? recent.map(t=>txItemHtml(t)).join('') : `<div class="empty-state"><div class="empty-icon">💸</div><p>Belum ada transaksi bulan ini</p></div>`}
+        ${recent.length ? recent.map(t=>txItemHtml(t)).join('') : `<div class="empty-state"><div class="empty-icon">💸</div><p>${t('empty.tx_this_month')}</p></div>`}
       </div>
     </div>
     
     <div class="card">
       <div class="flex items-center justify-between mb-12">
-        <div class="section-title" style="margin:0">Rekening</div>
-        <button class="btn btn-ghost btn-sm" onclick="navigate('accounts')">Kelola →</button>
+        <div class="section-title" style="margin:0">${t('dash.accounts')}</div>
+        <button class="btn btn-ghost btn-sm" onclick="navigate('accounts')">${t('btn.manage')} →</button>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
         ${state.accounts.slice(0,4).map(a=>`
@@ -103,47 +95,19 @@ function renderDashboard(area, actions) {
             <div style="font-size:11px;color:var(--text2);margin-bottom:3px">${a.icon || BANK_ICONS[a.bank] || '💳'} ${a.bank}</div>
             <div style="font-size:13px;font-weight:600;margin-bottom:2px">${a.name}</div>
             <div style="font-size:15px;font-weight:700;color:var(--accent)">${maskIf(isBalHidden(a.id), fmtShort(a.balance))}</div>
-          </div>`).join('') || '<div class="text-muted text-sm">Tambah rekening untuk mulai</div>'}
+          </div>`).join('') || `<div class="text-muted text-sm">${t('empty.accounts')}</div>`}
       </div>
-    </div>
-
-    ${renderDashboardWishlist()}`;
+    </div>`;
 
   // Render charts
   setTimeout(()=>{
     if(catEntries.length) {
       const ctx1 = document.getElementById('cat-chart')?.getContext('2d');
-      if(ctx1) {
-        const bg2 = getComputedStyle(document.documentElement).getPropertyValue('--bg2').trim() || '#1a1a1a';
-        const total = catEntries.reduce((s,c)=>s+c[1],0);
-        new Chart(ctx1, {
-          type:'doughnut',
-          data:{
-            labels: catEntries.map(c=>c[0]),
-            datasets:[{
-              data: catEntries.map(c=>c[1]),
-              backgroundColor: catEntries.map(c=>CAT_COLORS[c[0]]||'#636e72'),
-              borderWidth:3,
-              borderColor:bg2,
-              hoverOffset:6,
-            }],
-          },
-          options:{
-            responsive:true,
-            maintainAspectRatio:false,
-            cutout:'62%',
-            layout: { padding: { top: 24, right: 70, bottom: 24, left: 70 } },
-            plugins:{
-              legend:{display:false},
-              tooltip:{ callbacks:{ label: ctx => {
-                const pct = total ? ((ctx.raw/total)*100).toFixed(1) : '0.0';
-                return ` ${ctx.label}: ${fmtShort(ctx.raw)} (${pct}%)`;
-              } } },
-            },
-          },
-          plugins:[leaderLinesPlugin],
-        });
-      }
+      if(ctx1) new Chart(ctx1, {
+        type:'doughnut',
+        data:{labels:catEntries.map(c=>c[0]),datasets:[{data:catEntries.map(c=>c[1]),backgroundColor:catEntries.map(c=>CAT_COLORS[c[0]]||'#636e72'),borderWidth:0,hoverOffset:4}]},
+        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:d=>' '+fmtShort(d.raw)}}},cutout:'65%'}
+      });
     }
     const ctx2 = document.getElementById('daily-chart')?.getContext('2d');
     if(ctx2) {
@@ -167,78 +131,23 @@ function changeMonth(delta) {
   navigate('dashboard');
 }
 
-// ── Wishlist widget on dashboard (top 3 priority planning items) ────────
-function renderDashboardWishlist() {
-  const items = (state.wishlist || [])
-    .filter(w => w.status === 'planning')
-    .sort((a,b) => {
-      const pa = a.priority||2, pb = b.priority||2;
-      if (pa !== pb) return pa - pb;
-      return new Date(b.created_at||0) - new Date(a.created_at||0);
-    })
-    .slice(0, 3);
-
-  if (!items.length && (!state.wishlist || !state.wishlist.length)) {
-    // No wishlist at all — hide widget entirely
-    return '';
-  }
-
-  const itemHtml = items.map(w => {
-    const price = Number(w.price)||0;
-    const saved = Number(w.saved_amount)||0;
-    const pct = price > 0 ? Math.min(100, Math.round((saved/price)*100)) : 0;
-    let sub = `${fmtShort(saved)} / ${fmtShort(price)}`;
-    if (w.target_date) {
-      const today = new Date(); today.setHours(0,0,0,0);
-      const target = new Date(w.target_date); target.setHours(0,0,0,0);
-      const days = Math.ceil((target - today)/86400000);
-      const remaining = Math.max(0, price - saved);
-      if (saved >= price) sub = '🎉 Siap dibeli';
-      else if (days > 0) sub = `Nabung ${fmtShort(remaining/days)}/hari · ${days} hari lagi`;
-      else sub = `⚠️ Target lewat · kurang ${fmtShort(remaining)}`;
-    }
-    return `
-      <div class="dash-wl-item" onclick="navigate('wishlist')">
-        <div class="dash-wl-info">
-          <div class="dash-wl-name">${w.name}</div>
-          <div class="dash-wl-sub">${sub}</div>
-        </div>
-        <div class="dash-wl-progress">
-          <div class="dash-wl-progress-bar"><div style="width:${pct}%"></div></div>
-          <div class="dash-wl-pct">${pct}%</div>
-        </div>
-      </div>`;
-  }).join('');
-
-  return `
-    <div class="card" style="margin-top:16px">
-      <div class="flex items-center justify-between mb-12">
-        <div class="section-title" style="margin:0">🎁 Wishlist Teratas</div>
-        <button class="btn btn-ghost btn-sm" onclick="navigate('wishlist')">Lihat semua →</button>
-      </div>
-      <div class="dash-wishlist">
-        ${items.length ? itemHtml : '<div class="text-muted text-sm">Belum ada item dalam rencana</div>'}
-      </div>
-    </div>`;
-}
-
-function txItemHtml(t, showDelete = false) {
-  const acc = getAccount(t.account_id);
-  const catObj = getCatObj(t.category||'');
-  const icon = t.type==='transfer' ? '↔️' : (catObj.icon||'💸');
-  const iconBg = t.type==='income'?'var(--green-dim)':t.type==='transfer'?'rgba(96,165,250,0.12)':'var(--red-dim)';
-  const amtClass = t.type==='income'?'income':t.type==='transfer'?'transfer':'expense';
-  const sign = t.type==='income'?'+':t.type==='transfer'?'':'−';
+function txItemHtml(tx, showDelete = false) {
+  const acc = getAccount(tx.account_id);
+  const catObj = getCatObj(tx.category||'');
+  const icon = tx.type==='transfer' ? '↔️' : (catObj.icon||'💸');
+  const iconBg = tx.type==='income'?'var(--green-dim)':tx.type==='transfer'?'rgba(96,165,250,0.12)':'var(--red-dim)';
+  const amtClass = tx.type==='income'?'income':tx.type==='transfer'?'transfer':'expense';
+  const sign = tx.type==='income'?'+':tx.type==='transfer'?'':'−';
   return `<div class="tx-item" style="position:relative">
-    <div style="display:flex;align-items:center;gap:12px;flex:1" onclick="openEditTx('${t.id}')">
+    <div style="display:flex;align-items:center;gap:12px;flex:1" onclick="openEditTx('${tx.id}')">
       <div class="tx-icon" style="background:${iconBg}">${icon}</div>
       <div class="tx-info">
-        <div class="tx-name">${t.note||t.category||'Transaksi'}</div>
-        <div class="tx-sub">${t.category||'Transfer'} · ${acc?acc.name:''} · ${fmtDate(t.date)}</div>
+        <div class="tx-name">${tx.note||tx.category||t('tx.fallback')}</div>
+        <div class="tx-sub">${tx.category||t('tx.transfer')} · ${acc?acc.name:''} · ${fmtDate(tx.date)}</div>
       </div>
-      <div class="tx-amount ${amtClass}">${sign}${isBalHidden('total') ? '•••••' : fmtShort(t.amount)}</div>
+      <div class="tx-amount ${amtClass}">${sign}${isBalHidden('total') ? '•••••' : fmtShort(tx.amount)}</div>
     </div>
-    <button class="tx-delete-btn" onclick="event.stopPropagation();deleteTx('${t.id}')" title="Hapus">🗑️</button>
+    <button class="tx-delete-btn" onclick="event.stopPropagation();deleteTx('${tx.id}')" title="${t('btn.delete')}">🗑️</button>
   </div>`;
 }
 
@@ -246,16 +155,16 @@ async function deleteTx(id) {
   const doDelete = async () => {
     try {
       await DB.deleteTransaction(id)
-      showToast('Transaksi dihapus ✓')
+      showToast(t('tx.deleted'))
       navigate('transactions')
     } catch(e) {
-      showToast('Gagal menghapus: ' + e.message, 'error')
+      showToast(t('tx.delete_fail', { error: e.message }), 'error')
     }
   }
   if (typeof window.showConfirm === 'function') {
-    window.showConfirm('🗑️', 'Hapus Transaksi', 'Transaksi ini akan dihapus permanen.', 'Hapus', 'btn-danger', doDelete)
+    window.showConfirm('🗑️', t('tx.delete_title'), t('tx.delete_desc'), t('tx.delete_btn'), 'btn-danger', doDelete)
   } else {
-    if (confirm('Hapus transaksi ini?')) doDelete()
+    if (confirm(t('tx.delete_confirm_short'))) doDelete()
   }
 }
 window.deleteTx = deleteTx

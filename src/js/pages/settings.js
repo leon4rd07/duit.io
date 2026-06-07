@@ -23,40 +23,40 @@ function renderSettings(area, actions) {
           ${(meta.full_name || user?.email || 'U').charAt(0).toUpperCase()}
         </div>
         <div style="flex:1">
-          <div style="font-size:15px;font-weight:700">${meta.full_name || 'Pengguna'}</div>
+          <div style="font-size:15px;font-weight:700">${meta.full_name || t('st.user.default')}</div>
           <div style="font-size:12px;color:var(--text2)">${user?.email || ''}</div>
         </div>
       </div>
     </div>
 
     <div class="card mb-16">
-      <div class="settings-header">👤 Akun</div>
+      <div class="settings-header">👤 ${t('st.section.account')}</div>
       <div class="settings-row" onclick="openEditName()">
-        <div><div class="settings-row-title">Ubah Nama</div><div class="settings-row-desc">Ubah nama tampilan kamu</div></div>
+        <div><div class="settings-row-title">${t('st.edit_name')}</div><div class="settings-row-desc">${t('st.edit_name_desc')}</div></div>
         <div style="font-size:18px;color:var(--text3)">›</div>
       </div>
       <div class="settings-row" onclick="openChangePassword()">
-        <div><div class="settings-row-title">Ubah Password</div><div class="settings-row-desc">Ganti password akun kamu</div></div>
+        <div><div class="settings-row-title">${t('st.change_pwd')}</div><div class="settings-row-desc">${t('st.change_pwd_desc')}</div></div>
         <div style="font-size:18px;color:var(--text3)">›</div>
       </div>
       <div class="settings-row" onclick="sendForgotPassword()">
-        <div><div class="settings-row-title">Lupa Password?</div><div class="settings-row-desc">Kirim email reset password</div></div>
+        <div><div class="settings-row-title">${t('st.forgot_pwd')}</div><div class="settings-row-desc">${t('st.forgot_pwd_desc')}</div></div>
         <div style="font-size:18px;color:var(--text3)">📧</div>
       </div>
     </div>
 
     <div class="card mb-16">
-      <div class="settings-header">🔒 Privasi</div>
+      <div class="settings-header">🔒 ${t('st.section.privacy')}</div>
       <div class="settings-row" onclick="settingsToggleHide()">
-        <div><div class="settings-row-title">Sembunyikan Saldo</div><div class="settings-row-desc">Tampilkan saldo sebagai •••••• di seluruh app</div></div>
+        <div><div class="settings-row-title">${t('st.hide_balance')}</div><div class="settings-row-desc">${t('st.hide_balance_desc')}</div></div>
         <div class="toggle ${hideTotal?'on':''}"><div class="toggle-knob"></div></div>
       </div>
     </div>
 
     <div class="card mb-16">
-      <div class="settings-header">🎨 Tampilan</div>
+      <div class="settings-header">🎨 ${t('st.section.display')}</div>
       <div class="settings-row" onclick="window.toggleTheme && window.toggleTheme();setTimeout(()=>navigate('settings'),100)">
-        <div><div class="settings-row-title">Tema</div><div class="settings-row-desc">Saat ini: ${theme === 'dark' ? '🌙 Gelap' : '☀️ Terang'}</div></div>
+        <div><div class="settings-row-title">${t('st.theme')}</div><div class="settings-row-desc">${t('st.theme_desc', { value: theme === 'dark' ? t('label.theme.dark') : t('label.theme.light') })}</div></div>
         <div style="font-size:18px">${theme === 'dark' ? '🌙' : '☀️'}</div>
       </div>
     </div>
@@ -65,7 +65,7 @@ function renderSettings(area, actions) {
       <div class="settings-header">💱 ${t('label.currency')}</div>
       <div class="settings-row" onclick="openCurrencyPicker()">
         <div>
-          <div class="settings-row-title">${t('label.currency')}</div>
+          <div class="settings-row-title">${t('st.currency')}</div>
           <div class="settings-row-desc">${(CURRENCIES.find(c => c.code === (localStorage.getItem('currency') || 'IDR')) || CURRENCIES[0]).symbol} ${(CURRENCIES.find(c => c.code === (localStorage.getItem('currency') || 'IDR')) || CURRENCIES[0]).name}</div>
         </div>
         <div style="font-size:18px;color:var(--text3)">›</div>
@@ -76,39 +76,39 @@ function renderSettings(area, actions) {
       <div class="settings-header">🌐 ${t('label.language')}</div>
       <div class="settings-row" onclick="openLanguagePicker()">
         <div>
-          <div class="settings-row-title">${t('label.language')}</div>
-          <div class="settings-row-desc">${lang === 'en' ? '🇬🇧 English' : '🇮🇩 Indonesia'}</div>
+          <div class="settings-row-title">${t('st.language')}</div>
+          <div class="settings-row-desc"><span class="lang-badge ${lang}">${lang.toUpperCase()}</span> ${lang === 'en' ? t('st.lang.en_native') : t('st.lang.id_native')}</div>
         </div>
         <div style="font-size:18px;color:var(--text3)">›</div>
       </div>
     </div>
 
     <div class="card mb-16">
-      <div class="settings-header">💾 Data</div>
+      <div class="settings-header">💾 ${t('st.section.data')}</div>
       <div class="settings-row" onclick="navigate('categories')">
-        <div><div class="settings-row-title">Kelola Kategori</div><div class="settings-row-desc">Tambah, edit, hapus kategori transaksi</div></div>
+        <div><div class="settings-row-title">${t('st.manage_cats')}</div><div class="settings-row-desc">${t('st.manage_cats_desc')}</div></div>
         <div style="font-size:18px;color:var(--text3)">›</div>
       </div>
       <div class="settings-row" onclick="navigate('notifSettings')">
-        <div><div class="settings-row-title">Notifikasi</div><div class="settings-row-desc">Atur pengingat dan suara notifikasi</div></div>
+        <div><div class="settings-row-title">${t('st.notif')}</div><div class="settings-row-desc">${t('st.notif_desc')}</div></div>
         <div style="font-size:18px;color:var(--text3)">›</div>
       </div>
       <div class="settings-row" onclick="exportData()">
-        <div><div class="settings-row-title">Export Data</div><div class="settings-row-desc">Download semua transaksi (JSON)</div></div>
+        <div><div class="settings-row-title">${t('st.export')}</div><div class="settings-row-desc">${t('st.export_desc')}</div></div>
         <div style="font-size:18px;color:var(--text3)">⬇</div>
       </div>
     </div>
 
     <div class="card mb-16">
-      <div class="settings-header">ℹ️ Tentang</div>
+      <div class="settings-header">ℹ️ ${t('st.section.about')}</div>
       <div class="settings-row">
-        <div><div class="settings-row-title">duit.io</div><div class="settings-row-desc">Personal money manager v1.0</div></div>
+        <div><div class="settings-row-title">duit.io</div><div class="settings-row-desc">${t('st.about_desc')}</div></div>
       </div>
     </div>
 
     <div class="card mb-16">
       <button class="btn btn-danger" style="width:100%;justify-content:center" onclick="settingsLogout()">
-        🚪 Keluar dari Akun
+        🚪 ${t('st.logout')}
       </button>
     </div>
   `
@@ -264,15 +264,15 @@ function openLanguagePicker() {
   if (!modal) return
   const current = getLang()
   const langs = [
-    { code: 'id', label: 'Indonesia', flag: '🇮🇩' },
-    { code: 'en', label: 'English',   flag: '🇬🇧' },
+    { code: 'id', label: t('st.lang.id_native'), sublabel: t('st.lang.id') },
+    { code: 'en', label: t('st.lang.en_native'), sublabel: t('st.lang.en') },
   ]
   modal.querySelector('.sheet-title').textContent = t('st.lang.choose')
   modal.querySelector('.sheet-body').innerHTML = langs.map(l => `
     <div class="settings-row" onclick="selectLanguage('${l.code}')" style="cursor:pointer">
       <div>
-        <div class="settings-row-title">${l.flag} ${l.label}</div>
-        <div class="settings-row-desc">${l.code === 'id' ? 'Indonesian' : 'English'}</div>
+        <div class="settings-row-title"><span class="lang-badge ${l.code}">${l.code.toUpperCase()}</span> ${l.label}</div>
+        <div class="settings-row-desc">${l.sublabel}</div>
       </div>
       ${l.code === current ? '<div style="color:var(--accent);font-size:18px">✓</div>' : ''}
     </div>

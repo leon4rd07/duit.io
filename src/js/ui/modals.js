@@ -1099,10 +1099,14 @@ window.catPickerToggleGroup = catPickerToggleGroup;
 window.catPickerSelect = catPickerSelect;
 window.closeCatPicker = closeCatPicker;
 
-// Render inline category grid under "Kategori" label (no more modal)
+// Render inline category picker — tabs at top (group switcher) + grid for active group
+let _txCatActiveGroup = null
+
 function populateTxCategories(selCat) {
   const inp = document.getElementById('tx-category');
   if (inp) inp.value = selCat || '';
+  // Fresh form (no selection) → reset active group
+  if (!selCat) _txCatActiveGroup = null;
   renderTxCategoryGrid(selCat || '');
 }
 
@@ -1111,26 +1115,57 @@ function renderTxCategoryGrid(selCat) {
   if (!wrap) return;
   const type = txType === 'income' ? 'income' : 'expense';
   const groups = getCatGroups(type);
+  const groupNames = Object.keys(groups);
+  if (!groupNames.length) { wrap.innerHTML = ''; return; }
 
-  wrap.innerHTML = Object.entries(groups).map(([grp, cats]) => `
-    <div class="cat-inline-group">
-      <div class="cat-inline-group-label">${grp}</div>
-      <div class="cat-inline-grid">
-        ${cats.map(c => {
-          const full = c.icon + ' ' + c.name;
-          const selected = full === selCat;
-          const escaped = full.replace(/'/g, "\\'");
-          return `
-            <button type="button" class="cat-inline-item ${selected ? 'selected' : ''}"
-                    onclick="selectTxCat('${escaped}')">
-              <div class="cat-inline-emoji">${c.icon}</div>
-              <div class="cat-inline-name">${c.name}</div>
-            </button>
-          `;
+  // If a category is selected, switch to its group
+  if (selCat) {
+    for (const [grp, cats] of Object.entries(groups)) {
+      if (cats.some(c => (c.icon + ' ' + c.name) === selCat)) {
+        _txCatActiveGroup = grp;
+        break;
+      }
+    }
+  }
+  // Default to first group if none active OR active is invalid for current type
+  if (!_txCatActiveGroup || !groupNames.includes(_txCatActiveGroup)) {
+    _txCatActiveGroup = groupNames[0];
+  }
+
+  const activeCats = groups[_txCatActiveGroup] || [];
+  const showTabs = groupNames.length > 1;
+
+  wrap.innerHTML = `
+    ${showTabs ? `
+      <div class="cat-inline-tabs">
+        ${groupNames.map(grp => {
+          const escaped = grp.replace(/'/g, "\\'");
+          return `<button type="button" class="cat-tab ${grp === _txCatActiveGroup ? 'active' : ''}"
+                          onclick="setTxCatGroup('${escaped}')">${grp}</button>`;
         }).join('')}
       </div>
+    ` : ''}
+    <div class="cat-inline-grid">
+      ${activeCats.map(c => {
+        const full = c.icon + ' ' + c.name;
+        const selected = full === selCat;
+        const escaped = full.replace(/'/g, "\\'");
+        return `
+          <button type="button" class="cat-inline-item ${selected ? 'selected' : ''}"
+                  onclick="selectTxCat('${escaped}')">
+            <div class="cat-inline-emoji">${c.icon}</div>
+            <div class="cat-inline-name">${c.name}</div>
+          </button>
+        `;
+      }).join('')}
     </div>
-  `).join('');
+  `;
+}
+
+function setTxCatGroup(grp) {
+  _txCatActiveGroup = grp;
+  const currentVal = document.getElementById('tx-category')?.value || '';
+  renderTxCategoryGrid(currentVal);
 }
 
 function selectTxCat(full) {
@@ -1140,6 +1175,7 @@ function selectTxCat(full) {
 }
 
 window.selectTxCat = selectTxCat;
+window.setTxCatGroup = setTxCatGroup;
 
 async function saveTx() {
   const btn = document.getElementById('save-tx-btn');

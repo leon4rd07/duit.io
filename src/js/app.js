@@ -10,7 +10,7 @@ import { navigate, registerPage } from './lib/router.js'
 import { showToast }       from './lib/toast.js'
 import { applyTheme, initTheme, toggleTheme } from './ui/theme.js'
 import { renderAppShell }  from './ui/shell.js'
-import { onLangChange }    from './lib/i18n.js'
+import { onLangChange, t } from './lib/i18n.js'
 import { initCamera }      from './ui/camera.js'
 import { initModals }      from './ui/modals.js'
 
@@ -147,25 +147,25 @@ function renderAuthScreen(container) {
         <div class="logo-text">duit<span>.io</span></div>
       </div>
       <div class="auth-tab-row">
-        <div class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')">Masuk</div>
-        <div class="auth-tab" id="tab-register" onclick="switchAuthTab('register')">Daftar</div>
+        <div class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')">${t('auth.signin_action')}</div>
+        <div class="auth-tab" id="tab-register" onclick="switchAuthTab('register')">${t('auth.signup_action')}</div>
       </div>
-      <p class="auth-subtitle" id="auth-subtitle">Masuk ke akun duit.io Anda</p>
+      <p class="auth-subtitle" id="auth-subtitle">${t('auth.signin_subtitle')}</p>
       <div class="form-group">
-        <label class="form-label">Email</label>
-        <input class="form-input" type="email" id="auth-email" placeholder="nama@email.com"/>
+        <label class="form-label">${t('label.email')}</label>
+        <input class="form-input" type="email" id="auth-email" placeholder="${t('auth.email_placeholder')}"/>
       </div>
       <div class="form-group">
-        <label class="form-label">Password</label>
-        <input class="form-input" type="password" id="auth-password" placeholder="••••••••"
+        <label class="form-label">${t('label.password')}</label>
+        <input class="form-input" type="password" id="auth-password" placeholder="${t('auth.password_placeholder')}"
           onkeydown="if(event.key==='Enter')window._doAuth()"/>
       </div>
       <div class="form-group hidden" id="name-field">
-        <label class="form-label">Nama Lengkap</label>
-        <input class="form-input" type="text" id="auth-name" placeholder="Nama Anda"/>
+        <label class="form-label">${t('auth.full_name')}</label>
+        <input class="form-input" type="text" id="auth-name" placeholder="${t('auth.name_placeholder')}"/>
       </div>
-      <button class="btn-primary" id="auth-btn" onclick="window._doAuth()">Masuk</button>
-      <div style="text-align:center;margin-top:8px"><a href="#" class="forgot-password-link" onclick="event.preventDefault();window._forgotPassword()" style="font-size:12px;color:var(--accent);text-decoration:none">Lupa password?</a></div>
+      <button class="btn-primary" id="auth-btn" onclick="window._doAuth()">${t('auth.signin_action')}</button>
+      <div style="text-align:center;margin-top:8px"><a href="#" class="forgot-password-link" onclick="event.preventDefault();window._forgotPassword()" style="font-size:12px;color:var(--accent);text-decoration:none">${t('auth.forgot_pwd')}</a></div>
       <div class="auth-err" id="auth-err"></div>
     </div>`
 
@@ -174,8 +174,8 @@ function renderAuthScreen(container) {
     document.getElementById('tab-login').classList.toggle('active', mode === 'login')
     document.getElementById('tab-register').classList.toggle('active', mode === 'register')
     document.getElementById('auth-subtitle').textContent =
-      mode === 'login' ? 'Masuk ke akun duit.io Anda' : 'Buat akun baru gratis'
-    document.getElementById('auth-btn').textContent = mode === 'login' ? 'Masuk' : 'Daftar'
+      mode === 'login' ? t('auth.signin_subtitle') : t('auth.signup_subtitle')
+    document.getElementById('auth-btn').textContent = mode === 'login' ? t('auth.signin_action') : t('auth.signup_action')
     document.getElementById('name-field').classList.toggle('hidden', mode === 'login')
     document.getElementById('auth-err').style.display = 'none'
   }
@@ -185,10 +185,10 @@ function renderAuthScreen(container) {
     const pass  = document.getElementById('auth-password').value
     const btn   = document.getElementById('auth-btn')
     const err   = document.getElementById('auth-err')
-    if (!email || !pass) { err.textContent = 'Email dan password wajib diisi'; err.style.display = 'block'; return }
+    if (!email || !pass) { err.textContent = t('auth.err.required'); err.style.display = 'block'; return }
 
     btn.disabled = true
-    btn.innerHTML = `<span class="btn-spinner"></span>${_authMode === 'login' ? 'Masuk...' : 'Mendaftar...'}`
+    btn.innerHTML = `<span class="btn-spinner"></span>${_authMode === 'login' ? t('auth.signin_loading') : t('auth.signup_loading')}`
     err.style.display = 'none'
 
     try {
@@ -205,9 +205,9 @@ function renderAuthScreen(container) {
       if (!user?.id) {
         // Email confirmation required
         err.style.cssText = 'display:block;background:rgba(240,185,88,0.12);border-color:rgba(240,185,88,0.3);color:#f0b958'
-        err.innerHTML = '📧 Cek inbox email kamu — klik link konfirmasi dari Supabase, lalu <strong>Masuk</strong>.'
+        err.innerHTML = t('auth.confirm_email')
         btn.disabled = false
-        btn.textContent = 'Daftar'
+        btn.textContent = t('auth.signup_action')
         return
       }
 
@@ -215,10 +215,10 @@ function renderAuthScreen(container) {
       await loadAllData()
       showApp()
     } catch (e) {
-      err.textContent = e.message || 'Terjadi kesalahan'
+      err.textContent = e.message || t('auth.err.generic')
       err.style.cssText = 'display:block'
       btn.disabled = false
-      btn.textContent = _authMode === 'login' ? 'Masuk' : 'Daftar'
+      btn.textContent = _authMode === 'login' ? t('auth.signin_action') : t('auth.signup_action')
     }
   }
 }
@@ -226,8 +226,8 @@ function renderAuthScreen(container) {
 
 window._forgotPassword = async () => {
   const email = document.getElementById('auth-email').value.trim()
-  if (!email) { alert('Masukkan email kamu dulu di field Email'); return }
-  if (!confirm(`Kirim link reset password ke ${email}?`)) return
+  if (!email) { alert(t('auth.forgot.need_email')); return }
+  if (!confirm(t('auth.forgot.confirm', { email }))) return
   try {
     const { data: { session } } = await getSession()
     const supabase = state.supabase || db
@@ -235,9 +235,9 @@ window._forgotPassword = async () => {
       redirectTo: window.location.origin,
     })
     if (error) throw error
-    alert('Email reset password sudah dikirim. Cek inbox kamu.')
+    alert(t('auth.forgot.sent'))
   } catch (e) {
-    alert('Gagal: ' + e.message)
+    alert(t('auth.forgot.fail', { error: e.message }))
   }
 }
 

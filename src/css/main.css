@@ -1503,3 +1503,56 @@ input[type="date"] {
 @media (min-width: 768px) {
   .cat-inline-grid { grid-template-columns: repeat(6, 1fr); }
 }
+
+/* ===== LANGUAGE BADGE (universal, no flag emoji needed) ===== */
+.lang-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: #fff;
+  vertical-align: middle;
+  margin-right: 4px;
+  line-height: 1.4;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.lang-badge.id {
+  background: linear-gradient(135deg, #dc2626, #ef4444); /* Indonesia red */
+}
+.lang-badge.en {
+  background: linear-gradient(135deg, #1e40af, #3b82f6); /* UK blue */
+}
+
+/* ===== CATEGORY PICKER TABS (group switcher) ===== */
+.cat-inline-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+.cat-inline-tabs::-webkit-scrollbar { display: none }
+.cat-tab {
+  flex-shrink: 0;
+  padding: 7px 14px;
+  background: var(--bg3);
+  border: 1.5px solid transparent;
+  border-radius: 999px;
+  color: var(--text2);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: var(--transition);
+  outline: none;
+  white-space: nowrap;
+}
+.cat-tab:hover { background: var(--bg4) }
+.cat-tab.active {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+}
