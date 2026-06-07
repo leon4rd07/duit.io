@@ -24,7 +24,7 @@ export const signOut = () => db.auth.signOut()
 
 export async function loadAllData() {
   const uid = state.currentUser.id
-  const [ac, tx, bg, rc, db_, wl] = await Promise.all([
+  const [ac, tx, bg, rc, db_] = await Promise.all([
     db.from('accounts').select('*').eq('user_id', uid).order('created_at'),
     db.from('transactions').select('*').eq('user_id', uid)
       .order('date', { ascending: false })
@@ -32,14 +32,73 @@ export async function loadAllData() {
     db.from('budgets').select('*').eq('user_id', uid),
     db.from('recurring').select('*').eq('user_id', uid).order('created_at'),
     db.from('debts').select('*').eq('user_id', uid).order('created_at', { ascending: false }),
-    db.from('wishlist').select('*').eq('user_id', uid).order('created_at', { ascending: false }),
   ])
   state.accounts     = ac.data  || []
   state.transactions = tx.data  || []
   state.budgets      = bg.data  || []
   state.recurring    = rc.data  || []
   state.debts        = db_.data || []
-  state.wishlist     = wl?.error ? [] : (wl?.data || [])
+
+  // Load category settings (custom cats, hidden cats, group order) into localStorage
+  await loadCategorySettings()
+}
+
+// ── Category settings sync (cross-device categories) ─────────────────
+// Settings are kept in localStorage for sync API to existing code.
+// On loadAllData we pull from Supabase → write to localStorage (overrides local).
+// After every mutation, categories.js calls saveCategorySettings to push back.
+
+export async function loadCategorySettings() {
+  if (!state.currentUser) return
+  try {
+    const { data, error } = await db.from('category_settings')
+      .select('*').eq('user_id', state.currentUser.id).maybeSingle()
+    if (error) { console.warn('loadCategorySettings:', error.message); return }
+
+    if (data) {
+      // Backend has settings → mirror to localStorage so the existing API reads them
+      if (Array.isArray(data.custom_cats))
+        localStorage.setItem('custom_cats_v2', JSON.stringify(data.custom_cats))
+      if (Array.isArray(data.hidden_cats))
+        localStorage.setItem('hidden_cats', JSON.stringify(data.hidden_cats))
+      if (Array.isArray(data.group_order_expense))
+        localStorage.setItem('group_order_expense', JSON.stringify(data.group_order_expense))
+      if (Array.isArray(data.group_order_income))
+        localStorage.setItem('group_order_income', JSON.stringify(data.group_order_income))
+    } else {
+      // First time for this user → backfill backend from whatever is in localStorage
+      await saveCategorySettings()
+    }
+  } catch (e) {
+    console.warn('loadCategorySettings error:', e)
+  }
+}
+
+let _catSaveTimer = null
+export function saveCategorySettings() {
+  if (!state.currentUser) return
+  // Debounce so rapid mutations only fire one network write
+  if (_catSaveTimer) clearTimeout(_catSaveTimer)
+  _catSaveTimer = setTimeout(async () => {
+    try {
+      const parse = (k, def) => {
+        try { return JSON.parse(localStorage.getItem(k)) ?? def } catch { return def }
+      }
+      const payload = {
+        user_id: state.currentUser.id,
+        custom_cats:         parse('custom_cats_v2', []),
+        hidden_cats:         parse('hidden_cats', []),
+        group_order_expense: parse('group_order_expense', null),
+        group_order_income:  parse('group_order_income', null),
+        updated_at:          new Date().toISOString(),
+      }
+      const { error } = await db.from('category_settings')
+        .upsert(payload, { onConflict: 'user_id' })
+      if (error) console.warn('saveCategorySettings:', error.message)
+    } catch (e) {
+      console.warn('saveCategorySettings error:', e)
+    }
+  }, 600) // debounce 600ms
 }
 
 // ── Accounts ─────────────────────────────────────────────────────────
@@ -71,36 +130,6 @@ export async function updateAccountBalance(id, delta) {
   if (!acct) return
   const newBalance = Number(acct.balance) + delta
   await updateAccount(id, { balance: newBalance })
-}
-
-/**
- * Set an account's balance to a new absolute value.
- * Auto-creates an "adjustment" transaction (income if +, expense if −) for the difference,
- * so charts, running balance, and audit history stay accurate.
- *
- * Returns { tx, diff }. If diff is 0, no tx is created.
- */
-export async function setAccountBalance(accountId, newBalance, opts = {}) {
-  const a = state.accounts.find(x => x.id === accountId)
-  if (!a) throw new Error('Rekening tidak ditemukan')
-  const oldBalance = Number(a.balance) || 0
-  const target = Number(newBalance)
-  if (!isFinite(target)) throw new Error('Nilai saldo tidak valid')
-  const diff = target - oldBalance
-  if (diff === 0) return { tx: null, diff: 0 }
-
-  const isPositive = diff > 0
-  // createTransaction will run applyBalanceEffect → updates balance to target automatically.
-  const tx = await createTransaction({
-    type: isPositive ? 'income' : 'expense',
-    amount: Math.abs(diff),
-    category: isPositive ? '💰 Penyesuaian Saldo' : '💸 Penyesuaian Saldo',
-    account_id: accountId,
-    to_account_id: null,
-    note: opts.note || 'Penyesuaian saldo manual',
-    date: opts.date || new Date().toISOString().split('T')[0],
-  })
-  return { tx, diff }
 }
 
 // ── Transactions ──────────────────────────────────────────────────────
@@ -213,73 +242,4 @@ export async function updateDebt(id, payload) {
   await db.from('debts').update(payload).eq('id', id)
   const d = state.debts.find(x => x.id === id)
   if (d) Object.assign(d, payload)
-}
-
-// ── Wishlist ─────────────────────────────────────────────────────────────
-
-export async function createWishlist(payload) {
-  const { data, error } = await db.from('wishlist')
-    .insert([{ user_id: state.currentUser.id, ...payload }])
-    .select().single()
-  if (error) throw error
-  state.wishlist.unshift(data)
-  return data
-}
-
-export async function updateWishlist(id, payload) {
-  const { error } = await db.from('wishlist').update(payload).eq('id', id)
-  if (error) throw error
-  const w = state.wishlist.find(x => x.id === id)
-  if (w) Object.assign(w, payload)
-}
-
-export async function deleteWishlist(id) {
-  const { error } = await db.from('wishlist').delete().eq('id', id)
-  if (error) throw error
-  state.wishlist = state.wishlist.filter(w => w.id !== id)
-}
-
-/**
- * Add savings progress to a wishlist item.
- * This is purely a tracker — it does NOT touch any account balance.
- * Users decide themselves which rekening they're nabung at.
- */
-export async function addSavingsToWishlist(id, amount) {
-  const w = state.wishlist.find(x => x.id === id)
-  if (!w) throw new Error('Wishlist tidak ditemukan')
-  const newSaved = Number(w.saved_amount || 0) + Number(amount)
-  await updateWishlist(id, { saved_amount: newSaved })
-  return newSaved
-}
-
-/**
- * Mark a wishlist item as bought.
- * Creates an expense transaction and links it via bought_tx_id.
- */
-export async function markWishlistBought(id, opts) {
-  const w = state.wishlist.find(x => x.id === id)
-  if (!w) throw new Error('Wishlist tidak ditemukan')
-  const { accountId, amount, category, note } = opts || {}
-  if (!accountId) throw new Error('Rekening harus dipilih')
-  const finalAmount = Number(amount) || Number(w.price) || 0
-  if (finalAmount <= 0) throw new Error('Jumlah pembelian harus > 0')
-
-  // Create transaction
-  const tx = await createTransaction({
-    type: 'expense',
-    amount: finalAmount,
-    category: category || '🛍️ Belanja',
-    account_id: accountId,
-    note: note || `Wishlist: ${w.name}`,
-    date: new Date().toISOString().split('T')[0],
-  })
-
-  // Update wishlist
-  await updateWishlist(id, {
-    status: 'bought',
-    bought_at: new Date().toISOString(),
-    bought_amount: finalAmount,
-    bought_tx_id: tx.id,
-  })
-  return tx
 }

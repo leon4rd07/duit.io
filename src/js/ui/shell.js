@@ -1,6 +1,7 @@
 // src/js/ui/shell.js
 // Renders the main app shell (sidebar, topbar, mobile nav)
 import { navigate } from '../lib/router.js'
+import { t } from '../lib/i18n.js'
 
 export function renderAppShell() {
   document.getElementById('app').classList.add('visible')
@@ -22,26 +23,27 @@ function getShellHTML() {
     </div>
     <nav class="sidebar-nav">
       <div class="nav-section">
-        <div class="nav-item" data-page="dashboard" onclick="navigate('dashboard')"><span class="nav-icon">📊</span> Dashboard</div>
-        <div class="nav-item" data-page="accounts" onclick="navigate('accounts')"><span class="nav-icon">💳</span> Rekening</div>
-        <div class="nav-item" data-page="transactions" onclick="navigate('transactions')"><span class="nav-icon">📋</span> Transaksi</div>
-        <div class="nav-item" data-page="transfer" onclick="navigate('transfer')"><span class="nav-icon">↔️</span> Transfer</div>
+        <div class="nav-item" data-page="dashboard" onclick="navigate('dashboard')"><span class="nav-icon">📊</span> ${t('nav.dashboard')}</div>
+        <div class="nav-item" data-page="accounts" onclick="navigate('accounts')"><span class="nav-icon">💳</span> ${t('nav.accounts')}</div>
+        <div class="nav-item" data-page="transactions" onclick="navigate('transactions')"><span class="nav-icon">📋</span> ${t('nav.transactions')}</div>
+        <div class="nav-item" data-page="transfer" onclick="navigate('transfer')"><span class="nav-icon">↔️</span> ${t('nav.transfer')}</div>
       </div>
       <div class="nav-section">
-        <div class="nav-section-label">Kelola</div>
-        <div class="nav-item" data-page="budget" onclick="navigate('budget')"><span class="nav-icon">🎯</span> Anggaran</div>
-        <div class="nav-item" data-page="recurring" onclick="navigate('recurring')"><span class="nav-icon">🔄</span> Rutin</div>
-        <div class="nav-item" data-page="debts" onclick="navigate('debts')"><span class="nav-icon">🤝</span> Hutang/Piutang</div>
-        <div class="nav-item" data-page="wishlist" onclick="navigate('wishlist')"><span class="nav-icon">🎁</span> Wishlist</div>
+        <div class="nav-section-label">${t('nav.section.manage')}</div>
+        <div class="nav-item" data-page="budget" onclick="navigate('budget')"><span class="nav-icon">🎯</span> ${t('nav.budget')}</div>
+        <div class="nav-item" data-page="categories" onclick="navigate('categories')"><span class="nav-icon">🏷️</span> ${t('nav.categories')}</div>
+        <div class="nav-item" data-page="recurring" onclick="navigate('recurring')"><span class="nav-icon">🔄</span> ${t('nav.recurring')}</div>
+        <div class="nav-item" data-page="debts" onclick="navigate('debts')"><span class="nav-icon">🤝</span> ${t('nav.debts')}</div>
+        <div class="nav-item" data-page="wishlist" onclick="navigate('wishlist')"><span class="nav-icon">🎁</span> ${t('nav.wishlist')}</div>
       </div>
       <div class="nav-section">
-        <div class="nav-section-label">Tools</div>
-        <div class="nav-item" data-page="scan" onclick="navigate('scan')"><span class="nav-icon">📷</span> Scan Struk</div>
-        <div class="nav-item" data-page="splitbill" onclick="navigate('splitbill')"><span class="nav-icon">🍽️</span> Split Bill</div>
-        <div class="nav-item" data-page="bills" onclick="navigate('bills')"><span class="nav-icon">🧾</span> Tagihan</div>
-        <div class="nav-item" data-page="advisor" onclick="navigate('advisor')"><span class="nav-icon">🤖</span> AI Advisor</div>
-        <div class="nav-item" data-page="reports" onclick="navigate('reports')"><span class="nav-icon">📈</span> Laporan</div>
-        <div class="nav-item" data-page="settings" onclick="navigate('settings')"><span class="nav-icon">⚙️</span> Pengaturan</div>
+        <div class="nav-section-label">${t('nav.section.tools')}</div>
+        <div class="nav-item" data-page="scan" onclick="navigate('scan')"><span class="nav-icon">📷</span> ${t('nav.scan')}</div>
+        <div class="nav-item" data-page="splitbill" onclick="navigate('splitbill')"><span class="nav-icon">🍽️</span> ${t('nav.splitbill')}</div>
+        <div class="nav-item" data-page="bills" onclick="navigate('bills')"><span class="nav-icon">🧾</span> ${t('nav.bills')}</div>
+        <div class="nav-item" data-page="advisor" onclick="navigate('advisor')"><span class="nav-icon">🤖</span> ${t('nav.advisor')}</div>
+        <div class="nav-item" data-page="reports" onclick="navigate('reports')"><span class="nav-icon">📈</span> ${t('nav.reports')}</div>
+        <div class="nav-item" data-page="settings" onclick="navigate('settings')"><span class="nav-icon">⚙️</span> ${t('nav.settings')}</div>
       </div>
     </nav>
 <div class="sidebar-footer"></div>
@@ -57,11 +59,11 @@ function getShellHTML() {
 
   <nav class="mobile-nav">
     <div class="mobile-nav-inner">
-      <div class="mobile-nav-item" data-page="dashboard" onclick="navigate('dashboard')"><span class="mnav-icon">📊</span>Beranda</div>
-      <div class="mobile-nav-item" data-page="transactions" onclick="navigate('transactions')"><span class="mnav-icon">📝</span>Transaksi</div>
+      <div class="mobile-nav-item" data-page="dashboard" onclick="navigate('dashboard')"><span class="mnav-icon">📊</span>${t('nav.beranda')}</div>
+      <div class="mobile-nav-item" data-page="transactions" onclick="navigate('transactions')"><span class="mnav-icon">📝</span>${t('nav.transactions')}</div>
       <div class="mnav-fab-spacer"></div>
-      <div class="mobile-nav-item" data-page="accounts" onclick="navigate('accounts')"><span class="mnav-icon">💳</span>Rekening</div>
-      <div class="mobile-nav-item" data-page="more" onclick="window.openMoreMenu && window.openMoreMenu()"><span class="mnav-icon">☰</span>Lainnya</div>
+      <div class="mobile-nav-item" data-page="accounts" onclick="navigate('accounts')"><span class="mnav-icon">💳</span>${t('nav.accounts')}</div>
+      <div class="mobile-nav-item" data-page="more" onclick="window.openMoreMenu && window.openMoreMenu()"><span class="mnav-icon">☰</span>${t('nav.more')}</div>
     </div>
   </nav>
   <div class="fab" id="fab-add" onclick="window.openAddTransaction()" aria-label="Tambah transaksi">
@@ -79,23 +81,23 @@ export function openMoreMenu() {
     document.body.appendChild(modal)
   }
   const items = [
-    { page: 'scan',       icon: '📷', label: 'Scan Struk' },
-    { page: 'splitbill',  icon: '🍽️', label: 'Split Bill' },
-    { page: 'bills',      icon: '🧾', label: 'Tagihan' },
-    { page: 'budget',     icon: '🎯', label: 'Anggaran' },
-    { page: 'recurring',  icon: '🔄', label: 'Rutin' },
-    { page: 'debts',      icon: '🤝', label: 'Hutang/Piutang' },
-    { page: 'wishlist',   icon: '🎁', label: 'Wishlist' },
-    { page: 'advisor',    icon: '🤖', label: 'AI Advisor' },
-    { page: 'reports',    icon: '📈', label: 'Laporan' },
-    { page: 'categories', icon: '🏷️', label: 'Kategori' },
-    { page: 'settings',   icon: '⚙️', label: 'Pengaturan' },
+    { page: 'scan',       icon: '📷', label: t('nav.scan') },
+    { page: 'splitbill',  icon: '🍽️', label: t('nav.splitbill') },
+    { page: 'bills',      icon: '🧾', label: t('nav.bills') },
+    { page: 'budget',     icon: '🎯', label: t('nav.budget') },
+    { page: 'recurring',  icon: '🔄', label: t('nav.recurring') },
+    { page: 'debts',      icon: '🤝', label: t('nav.debts') },
+    { page: 'wishlist',   icon: '🎁', label: t('nav.wishlist') },
+    { page: 'advisor',    icon: '🤖', label: t('nav.advisor') },
+    { page: 'reports',    icon: '📈', label: t('nav.reports') },
+    { page: 'categories', icon: '🏷️', label: t('nav.categories') },
+    { page: 'settings',   icon: '⚙️', label: t('nav.settings') },
   ]
   modal.innerHTML = `
     <div class="sheet">
       <div class="sheet-handle"></div>
       <div class="sheet-head">
-        <div class="sheet-title">Menu Lainnya</div>
+        <div class="sheet-title">${t('nav.more_menu')}</div>
         <button class="sheet-close" onclick="closeMoreMenu()">✕</button>
       </div>
       <div class="sheet-body">

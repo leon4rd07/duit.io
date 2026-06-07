@@ -3,6 +3,7 @@
 import { DEFAULT_CATS, GROUP_ORDER_EXPENSE, GROUP_ORDER_INCOME } from './config.js'
 export { DEFAULT_CATS, GROUP_ORDER_EXPENSE, GROUP_ORDER_INCOME }
 import { safeJSON } from './utils.js'
+import { saveCategorySettings } from './supabase.js'
 
 // ── Persistence ───────────────────────────────────────────────────────
 
@@ -12,8 +13,14 @@ const GROUP_ORDER_KEY   = (type) => `group_order_${type}`
 
 export const getCustomCats  = () => safeJSON(localStorage.getItem(STORAGE_KEY), []) || []
 export const getHiddenCats  = () => safeJSON(localStorage.getItem(HIDDEN_KEY), []) || []
-export const saveCustomCats = (cats) => localStorage.setItem(STORAGE_KEY, JSON.stringify(cats))
-export const saveHiddenCats = (ids)  => localStorage.setItem(HIDDEN_KEY, JSON.stringify(ids))
+export const saveCustomCats = (cats) => {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(cats))
+  saveCategorySettings() // sync to Supabase (debounced)
+}
+export const saveHiddenCats = (ids)  => {
+  localStorage.setItem(HIDDEN_KEY, JSON.stringify(ids))
+  saveCategorySettings()
+}
 
 // ── Read all active categories ────────────────────────────────────────
 
@@ -65,6 +72,7 @@ export function getGroupOrder(type) {
 
 export function saveGroupOrder(type, order) {
   localStorage.setItem(GROUP_ORDER_KEY(type), JSON.stringify(order))
+  saveCategorySettings()
 }
 
 export function getAllGroupsOrdered(type) {
