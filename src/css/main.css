@@ -1446,3 +1446,60 @@ input[type="date"] {
   font-size: 13px;
   color: var(--text2);
 }
+
+/* ===== INLINE CATEGORY PICKER (grid in tx form, no modal) ===== */
+.cat-inline-picker {
+  display: flex; flex-direction: column;
+  gap: 14px;
+  margin-top: 6px;
+}
+.cat-inline-group-label {
+  font-size: 10.5px; font-weight: 700;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 8px;
+}
+.cat-inline-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+.cat-inline-item {
+  background: var(--bg3);
+  border: 1.5px solid transparent;
+  border-radius: 10px;
+  padding: 10px 4px 8px;
+  text-align: center;
+  cursor: pointer;
+  transition: var(--transition);
+  font-family: inherit;
+  color: var(--text);
+  outline: none;
+}
+.cat-inline-item:hover { background: var(--bg4) }
+.cat-inline-item:active { transform: scale(0.96) }
+.cat-inline-item.selected {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+}
+.cat-inline-emoji {
+  font-size: 22px;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.cat-inline-name {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+.cat-inline-item.selected .cat-inline-name { color: var(--accent) }
+
+/* Wider grid on desktop */
+@media (min-width: 768px) {
+  .cat-inline-grid { grid-template-columns: repeat(6, 1fr); }
+}

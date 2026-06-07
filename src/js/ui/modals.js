@@ -1099,16 +1099,47 @@ window.catPickerToggleGroup = catPickerToggleGroup;
 window.catPickerSelect = catPickerSelect;
 window.closeCatPicker = closeCatPicker;
 
-// Update the category display button (called from populateTxCategories)
+// Render inline category grid under "Kategori" label (no more modal)
 function populateTxCategories(selCat) {
-  // Set hidden input value
   const inp = document.getElementById('tx-category');
   if (inp) inp.value = selCat || '';
-  // Update the visible display
-  setCategoryDisplay(selCat || '');
-  // Reset accordion state when opening fresh form
-  if (!selCat) _catPickerExpanded.clear();
+  renderTxCategoryGrid(selCat || '');
 }
+
+function renderTxCategoryGrid(selCat) {
+  const wrap = document.getElementById('tx-cat-grid');
+  if (!wrap) return;
+  const type = txType === 'income' ? 'income' : 'expense';
+  const groups = getCatGroups(type);
+
+  wrap.innerHTML = Object.entries(groups).map(([grp, cats]) => `
+    <div class="cat-inline-group">
+      <div class="cat-inline-group-label">${grp}</div>
+      <div class="cat-inline-grid">
+        ${cats.map(c => {
+          const full = c.icon + ' ' + c.name;
+          const selected = full === selCat;
+          const escaped = full.replace(/'/g, "\\'");
+          return `
+            <button type="button" class="cat-inline-item ${selected ? 'selected' : ''}"
+                    onclick="selectTxCat('${escaped}')">
+              <div class="cat-inline-emoji">${c.icon}</div>
+              <div class="cat-inline-name">${c.name}</div>
+            </button>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+function selectTxCat(full) {
+  const inp = document.getElementById('tx-category');
+  if (inp) inp.value = full;
+  renderTxCategoryGrid(full);
+}
+
+window.selectTxCat = selectTxCat;
 
 async function saveTx() {
   const btn = document.getElementById('save-tx-btn');
