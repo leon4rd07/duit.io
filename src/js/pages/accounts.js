@@ -5,6 +5,7 @@ import { navigate }     from '../lib/router.js'
 import { fmt, fmtShort, toLocalDateString } from '../lib/utils.js'
 import { BANK_ICONS } from '../lib/config.js'
 import * as DB          from '../lib/supabase.js'
+import { t }            from '../lib/i18n.js'
 
 // ── Persistent prefs ─────────────────────────────────────────────────
 const PREFS_KEY    = 'acct_prefs_v1'
@@ -46,7 +47,7 @@ function renderAccounts(area, actions) {
   const prefs = getPrefs()
   const hideTotal = localStorage.getItem('hide_total_balance') === '1'
 
-  actions.innerHTML = `<button class="btn btn-accent btn-sm" onclick="window.openAddAccount && window.openAddAccount()">+ Rekening</button>`
+  actions.innerHTML = `<button class="btn btn-accent btn-sm" onclick="window.openAddAccount && window.openAddAccount()">${t('acct.add_btn')}</button>`
 
   const sorted = getSortedAccounts()
   const total = sorted.reduce((s,a) => s + Number(a.balance), 0)
@@ -54,7 +55,7 @@ function renderAccounts(area, actions) {
   // Group by category
   const catGroups = {}
   sorted.forEach(a => {
-    const cat = a.category || 'Lainnya'
+    const cat = a.category || t('acct.uncategorized')
     if (!catGroups[cat]) catGroups[cat] = []
     catGroups[cat].push(a)
   })
@@ -65,12 +66,12 @@ function renderAccounts(area, actions) {
     <div class="card mb-16" style="background:linear-gradient(135deg,var(--bg3),var(--bg2));position:relative">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div>
-          <div class="stat-label">Total Saldo</div>
+          <div class="stat-label">${t('acct.total_balance')}</div>
           <div style="font-size:30px;font-weight:800;color:var(--accent);margin:4px 0">
             ${hideTotal ? '••••••••' : fmt(total)}
           </div>
         </div>
-        <button class="btn-icon" onclick="toggleHideTotal()" title="${hideTotal?'Tampilkan':'Sembunyikan'} semua saldo">
+        <button class="btn-icon" onclick="toggleHideTotal()" title="${hideTotal ? t('acct.show_all') : t('acct.hide_all')}">
           ${hideTotal ? '👁‍🗨' : '👁'}
         </button>
       </div>
@@ -97,7 +98,7 @@ function renderAccounts(area, actions) {
           ondrop="grpDrop(event,'${cat}')">
           <div class="acct-group-header" onclick="toggleAcctGroup('${cat}')">
             <div style="display:flex;align-items:center;gap:8px;flex:1">
-              <span class="grp-drag-handle" title="Drag untuk atur urutan" onclick="event.stopPropagation()">⠿</span>
+              <span class="grp-drag-handle" title="${t('acct.drag_hint')}" onclick="event.stopPropagation()">⠿</span>
               <span style="font-size:15px;font-weight:700">${cat}</span>
               <span style="font-size:12px;color:var(--text2)">${hideTotal ? '•••' : fmtShort(catTotal)}</span>
               <span style="font-size:11px;color:var(--text3)">(${accs.length})</span>
@@ -112,7 +113,7 @@ function renderAccounts(area, actions) {
         </div>`
     }).join('')}
 
-    ${!state.accounts.length ? `<div class="empty-state"><div class="empty-icon">💳</div><p>Belum ada rekening.</p></div>` : ''}
+    ${!state.accounts.length ? `<div class="empty-state"><div class="empty-icon">💳</div><p>${t('acct.empty_dot')}</p></div>` : ''}
   `
 }
 
@@ -132,7 +133,7 @@ function renderAccountCard(a, prefs, hideTotal) {
     ondrop="acctDrop(event,'${a.id}')">
 
     <div style="position:absolute;top:8px;right:8px;display:flex;gap:4px;z-index:2">
-      <button class="acct-icon-btn" onclick="event.stopPropagation();toggleHideBalance('${a.id}')" title="${hideThis?'Tampilkan':'Sembunyikan'} saldo">
+      <button class="acct-icon-btn" onclick="event.stopPropagation();toggleHideBalance('${a.id}')" title="${hideThis ? t('acct.show_balance') : t('acct.hide_balance')}">
         ${hideThis ? '👁‍🗨' : '👁'}
       </button>
     </div>
@@ -145,12 +146,12 @@ function renderAccountCard(a, prefs, hideTotal) {
       </div>
       <div style="margin-top:6px;display:flex;gap:5px;flex-wrap:wrap">
         ${a.acct_type ? `<span style="font-size:10px;font-weight:600;background:var(--bg4);color:var(--text3);padding:2px 6px;border-radius:6px">${a.acct_type}</span>` : ''}
-        <span style="font-size:10px;color:var(--text3)">${txCount} transaksi</span>
+        <span style="font-size:10px;color:var(--text3)">${t('acct.tx_count', { count: txCount })}</span>
       </div>
     </div>
 
     <div class="acct-note-wrap" onclick="event.stopPropagation()">
-      <textarea class="acct-note-input" placeholder="Tambah catatan..." rows="2" oninput="saveAcctNote('${a.id}',this.value)">${note}</textarea>
+      <textarea class="acct-note-input" placeholder="${t('acct.note_placeholder')}" rows="2" oninput="saveAcctNote('${a.id}',this.value)">${note}</textarea>
     </div>
   </div>`
 }

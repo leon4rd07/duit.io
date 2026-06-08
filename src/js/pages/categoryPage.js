@@ -11,6 +11,7 @@ import {
   DEFAULT_CATS, CATEGORIES
 } from '../lib/categories.js'
 import { AVATAR_COLORS, CAT_EMOJI_OPTIONS, CAT_COLOR_OPTIONS } from '../lib/config.js'
+import { t } from '../lib/i18n.js'
 
 // Replace global references with state
 
@@ -19,7 +20,7 @@ import { AVATAR_COLORS, CAT_EMOJI_OPTIONS, CAT_COLOR_OPTIONS } from '../lib/conf
 function deleteCat(id) {
   deleteCategory(id)
   closeCatSheet()
-  showToast('Kategori dihapus')
+  showToast(t('cat.deleted'))
   navigate('categories')
 }
 
@@ -33,18 +34,18 @@ let _editingCatId   = null;
 
 function renderCategoryManager(area, actions) {
   actions.innerHTML = `
-    <button class="btn btn-ghost btn-sm" onclick="openGroupManager()">📂 Kelola Grup</button>
-    <button class="btn btn-accent btn-sm" onclick="openAddCatSheet()">+ Tambah</button>`;
+    <button class="btn btn-ghost btn-sm" onclick="openGroupManager()">${t('cat.manage_groups')}</button>
+    <button class="btn btn-accent btn-sm" onclick="openAddCatSheet()">${t('cat.add_btn')}</button>`;
 
   const groups = getCatGroups(_catPageType);
 
   area.innerHTML = `
     <div class="cat-type-tab">
-      <div class="cat-type-btn ${_catPageType==='expense'?'active':''}" onclick="setCatPageType('expense')">🛒 Pengeluaran</div>
-      <div class="cat-type-btn ${_catPageType==='income'?'active':''}" onclick="setCatPageType('income')">💰 Pemasukan</div>
+      <div class="cat-type-btn ${_catPageType==='expense'?'active':''}" onclick="setCatPageType('expense')">${t('cat.tab.expense')}</div>
+      <div class="cat-type-btn ${_catPageType==='income'?'active':''}" onclick="setCatPageType('income')">${t('cat.tab.income')}</div>
     </div>
     <div style="font-size:12px;color:var(--text3);margin-bottom:12px;text-align:center">
-      Tahan ≡ lalu drag untuk pindahkan kategori ke grup lain
+      ${t('cat.drag_hint')}
     </div>
     <div id="cat-list-root">
       ${Object.entries(groups).map(([grp, cats]) => `
@@ -56,7 +57,7 @@ function renderCategoryManager(area, actions) {
           <div class="cat-group-name">${grp}</div>
           <div style="display:flex;align-items:center;gap:6px">
             <span style="font-size:11px;color:var(--text3)">${cats.length}</span>
-            <span class="cat-group-edit-btn" onclick="openGroupEditor('${grp}')" title="Edit grup">✏️</span>
+            <span class="cat-group-edit-btn" onclick="openGroupEditor('${grp}')" title="${t('cat.edit_group')}">✏️</span>
           </div>
         </div>
         <div class="cat-section" id="grp-${grp.replace(/\s/g,'_')}"
@@ -64,7 +65,7 @@ function renderCategoryManager(area, actions) {
           ondragleave="this.classList.remove('drop-target')"
           ondrop="handleDropToGroup(event,'${grp}')">
           ${cats.length === 0
-            ? `<div style="padding:14px;text-align:center;font-size:12px;color:var(--text3)">Drag kategori ke sini</div>`
+            ? `<div style="padding:14px;text-align:center;font-size:12px;color:var(--text3)">${t('cat.drag_here')}</div>`
             : cats.map(c => `
             <div class="cat-list-item"
               draggable="true"
@@ -78,11 +79,11 @@ function renderCategoryManager(area, actions) {
               onclick="openEditCatSheet('${c.id}')">
               <div class="cat-list-icon" style="background:${c.color}22">${c.icon}</div>
               <div class="cat-list-name">${c.name}</div>
-              <div class="cat-list-del" onclick="event.stopPropagation();deleteCat('${c.id}')" title="Hapus">✕</div>
-              <div class="cat-list-drag" title="Drag untuk pindah">≡</div>
+              <div class="cat-list-del" onclick="event.stopPropagation();deleteCat('${c.id}')" title="${t('cat.delete')}">✕</div>
+              <div class="cat-list-drag" title="${t('cat.drag_to_move')}">≡</div>
             </div>`).join('')}
         </div>`).join('')}
-      ${Object.keys(groups).length === 0 ? `<div class="empty-state"><div class="empty-icon">🏷️</div><p>Belum ada kategori</p></div>` : ''}
+      ${Object.keys(groups).length === 0 ? `<div class="empty-state"><div class="empty-icon">🏷️</div><p>${t('cat.empty')}</p></div>` : ''}
     </div>`;
 }
 
@@ -312,8 +313,10 @@ function openAddCatSheet() {
   _newCatEmoji  = '📦';
   _newCatColor  = '#ff7c5c';
   _newCatType   = _catPageType;
-  _newCatGroup  = '';
-  buildCatSheet('Tambah Kategori', '', '', false);
+  // Default to first existing group instead of empty
+  const grps = getAllGroupsOrdered(_newCatType);
+  _newCatGroup = grps[0] || '';
+  buildCatSheet(t('cat.sheet.add_title'), '', _newCatGroup, false);
 }
 function openEditCatSheet(id) {
   const c = getAllCats().find(x=>x.id===id);
@@ -323,7 +326,7 @@ function openEditCatSheet(id) {
   _newCatColor  = c.color;
   _newCatType   = c.type;
   _newCatGroup  = c.group;
-  buildCatSheet('Edit Kategori', c.name, c.group, true);
+  buildCatSheet(t('cat.sheet.edit_title'), c.name, c.group, true);
 }
 
 function buildCatSheet(title, nameVal, groupVal, isEdit) {
@@ -333,6 +336,8 @@ function buildCatSheet(title, nameVal, groupVal, isEdit) {
 
   const allCats = getAllCats();
   const groups = getAllGroupsOrdered(_newCatType);
+  const selectedGroup = groupVal || _newCatGroup || (groups[0] || '');
+  _newCatGroup = selectedGroup;
 
   const sheetEl = document.createElement('div');
   sheetEl.id = 'cat-add-sheet';
@@ -347,29 +352,37 @@ function buildCatSheet(title, nameVal, groupVal, isEdit) {
       <div class="sheet-body">
 
         <div class="field">
-          <label>Jenis</label>
+          <label>${t('cat.sheet.type')}</label>
           <div style="display:flex;gap:6px">
-            <div class="pill ${_newCatType==='expense'?'active':''}" id="ctype-exp" onclick="setCatSheetType('expense')">💸 Pengeluaran</div>
-            <div class="pill ${_newCatType==='income'?'active':''}" id="ctype-inc" onclick="setCatSheetType('income')">💰 Pemasukan</div>
-          </div>
-        </div>
-
-        <div class="field-row">
-          <div class="field">
-            <label>Nama Kategori</label>
-            <input type="text" id="cs-name" value="${nameVal}" placeholder="mis. Streaming, Gym..."/>
-          </div>
-          <div class="field">
-            <label>Grup</label>
-            <input type="text" id="cs-group" value="${groupVal || _newCatGroup}" placeholder="mis. Hiburan, Rumah..." list="cs-group-list"/>
-            <datalist id="cs-group-list">
-              ${groups.map(g=>`<option value="${g}">`).join('')}
-            </datalist>
+            <div class="pill ${_newCatType==='expense'?'active':''}" id="ctype-exp" onclick="setCatSheetType('expense')">${t('cat.sheet.expense')}</div>
+            <div class="pill ${_newCatType==='income'?'active':''}" id="ctype-inc" onclick="setCatSheetType('income')">${t('cat.sheet.income')}</div>
           </div>
         </div>
 
         <div class="field">
-          <label>Ikon</label>
+          <label>${t('cat.sheet.name')}</label>
+          <input type="text" id="cs-name" value="${nameVal}" placeholder="${t('cat.sheet.name_ph')}"/>
+        </div>
+
+        <div class="field">
+          <label>${t('cat.sheet.group')}</label>
+          <div class="cat-group-pills" id="cs-group-pills">
+            ${groups.map(g => {
+              const esc = g.replace(/'/g, "\\'");
+              return `<button type="button" class="cat-group-pill ${g===selectedGroup?'active':''}"
+                              data-group="${g}"
+                              onclick="selectCatSheetGroup('${esc}')">${g}</button>`;
+            }).join('')}
+            <button type="button" class="cat-group-pill new-group" id="cs-new-group-btn" onclick="toggleNewGroupInput()">${t('cat.sheet.new_group')}</button>
+          </div>
+          <input type="text" id="cs-new-group-input" placeholder="${t('cat.sheet.new_group_ph')}"
+                 style="display:none;margin-top:8px;width:100%;background:var(--bg3);border:1px solid var(--accent);border-radius:9px;padding:9px 13px;color:var(--text);font-size:13px;outline:none"
+                 oninput="onNewGroupInput(this.value)"/>
+          <input type="hidden" id="cs-group" value="${selectedGroup}"/>
+        </div>
+
+        <div class="field">
+          <label>${t('cat.sheet.icon')}</label>
           <div class="emoji-pick-grid" id="cs-emoji-grid">
             ${CAT_EMOJI_OPTIONS.map(e=>`
               <span class="emoji-pick-item${e===_newCatEmoji?' sel':''}" onclick="setCatSheetEmoji('${e}')">${e}</span>
@@ -378,7 +391,7 @@ function buildCatSheet(title, nameVal, groupVal, isEdit) {
         </div>
 
         <div class="field">
-          <label>Warna</label>
+          <label>${t('cat.sheet.color')}</label>
           <div style="display:flex;gap:7px;flex-wrap:wrap" id="cs-color-grid">
             ${CAT_COLOR_OPTIONS.map(c=>`
               <div onclick="setCatSheetColor('${c}')" style="width:28px;height:28px;border-radius:50%;background:${c};cursor:pointer;flex-shrink:0;
@@ -392,17 +405,17 @@ function buildCatSheet(title, nameVal, groupVal, isEdit) {
         <div style="display:flex;align-items:center;gap:12px;background:var(--bg3);border-radius:10px;padding:12px 14px;margin-bottom:4px">
           <div id="cs-prev-icon" style="width:44px;height:44px;border-radius:12px;background:${_newCatColor}22;display:flex;align-items:center;justify-content:center;font-size:24px">${_newCatEmoji}</div>
           <div style="flex:1">
-            <div id="cs-prev-name" style="font-size:14px;font-weight:600">${nameVal||'Nama Kategori'}</div>
-            <div id="cs-prev-group" style="font-size:11px;color:var(--text2)">${groupVal||_newCatGroup||'Grup'}</div>
+            <div id="cs-prev-name" style="font-size:14px;font-weight:600">${nameVal || t('cat.sheet.preview_name')}</div>
+            <div id="cs-prev-group" style="font-size:11px;color:var(--text2)">${selectedGroup || t('cat.sheet.preview_group')}</div>
           </div>
           <div id="cs-prev-dot" style="width:10px;height:10px;border-radius:50%;background:${_newCatColor}"></div>
         </div>
 
         <div class="sheet-actions" style="margin-top:16px">
-          <button class="btn btn-ghost" onclick="closeCatSheet()">Batal</button>
-          <button class="btn btn-accent" onclick="saveCatSheet(${isEdit})">${isEdit?'Simpan Perubahan':'Tambah Kategori'}</button>
+          <button class="btn btn-ghost" onclick="closeCatSheet()">${t('btn.cancel')}</button>
+          <button class="btn btn-accent" onclick="saveCatSheet(${isEdit})">${isEdit ? t('cat.sheet.save_changes') : t('cat.sheet.add_btn')}</button>
         </div>
-        ${isEdit&&_editingCatId?`<button class="btn btn-danger" style="width:100%;justify-content:center;margin-top:8px" onclick="deleteCat('${_editingCatId}')">🗑️ Hapus Kategori Ini</button>`:''}
+        ${isEdit&&_editingCatId?`<button class="btn btn-danger" style="width:100%;justify-content:center;margin-top:8px" onclick="deleteCat('${_editingCatId}')">${t('cat.sheet.delete_btn')}</button>`:''}
       </div>
     </div>`;
 
@@ -413,11 +426,7 @@ function buildCatSheet(title, nameVal, groupVal, isEdit) {
   setTimeout(()=>{
     document.getElementById('cs-name')?.addEventListener('input', e=>{
       const el = document.getElementById('cs-prev-name');
-      if(el) el.textContent = e.target.value || 'Nama Kategori';
-    });
-    document.getElementById('cs-group')?.addEventListener('input', e=>{
-      const el = document.getElementById('cs-prev-group');
-      if(el) el.textContent = e.target.value || 'Grup';
+      if(el) el.textContent = e.target.value || t('cat.sheet.preview_name');
     });
   }, 30);
 }
@@ -426,10 +435,86 @@ function closeCatSheet() {
   document.getElementById('cat-add-sheet')?.remove();
 }
 
-function setCatSheetType(t) {
-  _newCatType = t;
-  document.getElementById('ctype-exp')?.classList.toggle('active', t==='expense');
-  document.getElementById('ctype-inc')?.classList.toggle('active', t==='income');
+function setCatSheetType(type) {
+  _newCatType = type;
+  document.getElementById('ctype-exp')?.classList.toggle('active', type==='expense');
+  document.getElementById('ctype-inc')?.classList.toggle('active', type==='income');
+  // Group list depends on type — rebuild the pills
+  const groups = getAllGroupsOrdered(_newCatType);
+  // If current selected group doesn't exist in new type, reset to first
+  if (!groups.includes(_newCatGroup)) {
+    _newCatGroup = groups[0] || '';
+  }
+  const pillsContainer = document.getElementById('cs-group-pills');
+  if (pillsContainer) {
+    pillsContainer.innerHTML = `
+      ${groups.map(g => {
+        const esc = g.replace(/'/g, "\\'");
+        return `<button type="button" class="cat-group-pill ${g===_newCatGroup?'active':''}"
+                        data-group="${g}"
+                        onclick="selectCatSheetGroup('${esc}')">${g}</button>`;
+      }).join('')}
+      <button type="button" class="cat-group-pill new-group" id="cs-new-group-btn" onclick="toggleNewGroupInput()">${t('cat.sheet.new_group')}</button>
+    `;
+  }
+  const hidden = document.getElementById('cs-group');
+  if (hidden) hidden.value = _newCatGroup;
+  const prev = document.getElementById('cs-prev-group');
+  if (prev) prev.textContent = _newCatGroup || t('cat.sheet.preview_group');
+}
+
+// ── Group chip selector handlers ─────────────────────────────────────
+function selectCatSheetGroup(g) {
+  _newCatGroup = g;
+  const hidden = document.getElementById('cs-group');
+  if (hidden) hidden.value = g;
+  document.querySelectorAll('.cat-group-pill').forEach(el => {
+    el.classList.toggle('active', el.dataset.group === g);
+  });
+  // Hide new-group input if shown
+  const newInput = document.getElementById('cs-new-group-input');
+  if (newInput) {
+    newInput.style.display = 'none';
+    newInput.value = '';
+  }
+  document.getElementById('cs-new-group-btn')?.classList.remove('active');
+  // Update preview
+  const prev = document.getElementById('cs-prev-group');
+  if (prev) prev.textContent = g;
+}
+
+function toggleNewGroupInput() {
+  const input = document.getElementById('cs-new-group-input');
+  const btn   = document.getElementById('cs-new-group-btn');
+  if (!input || !btn) return;
+  if (input.style.display === 'none') {
+    // Show input — clear other selections
+    input.style.display = 'block';
+    document.querySelectorAll('.cat-group-pill[data-group]').forEach(el => el.classList.remove('active'));
+    btn.classList.add('active');
+    _newCatGroup = '';
+    const hidden = document.getElementById('cs-group');
+    if (hidden) hidden.value = '';
+    const prev = document.getElementById('cs-prev-group');
+    if (prev) prev.textContent = t('cat.sheet.preview_group');
+    setTimeout(() => input.focus(), 50);
+  } else {
+    // Hide input — restore selection to first group
+    input.style.display = 'none';
+    input.value = '';
+    btn.classList.remove('active');
+    const groups = getAllGroupsOrdered(_newCatType);
+    if (groups.length) selectCatSheetGroup(groups[0]);
+  }
+}
+
+function onNewGroupInput(value) {
+  const v = value.trim();
+  _newCatGroup = v;
+  const hidden = document.getElementById('cs-group');
+  if (hidden) hidden.value = v;
+  const prev = document.getElementById('cs-prev-group');
+  if (prev) prev.textContent = v || t('cat.sheet.preview_group');
 }
 
 function setCatSheetEmoji(e) {
@@ -457,8 +542,8 @@ function setCatSheetColor(c) {
 function saveCatSheet(isEdit) {
   const name  = document.getElementById('cs-name')?.value.trim();
   const group = document.getElementById('cs-group')?.value.trim();
-  if (!name)  { showToast('Masukkan nama kategori','error'); return; }
-  if (!group) { showToast('Masukkan nama grup','error'); return; }
+  if (!name)  { showToast(t('cat.err.name_required'), 'error'); return; }
+  if (!group) { showToast(t('cat.err.group_required'), 'error'); return; }
 
   const existing = JSON.parse(localStorage.getItem('custom_cats_v2') || '[]');
 
@@ -506,6 +591,9 @@ window.closeCatSheet     = closeCatSheet
 window.setCatSheetType   = setCatSheetType
 window.setCatSheetEmoji  = setCatSheetEmoji
 window.setCatSheetColor  = setCatSheetColor
+window.selectCatSheetGroup = selectCatSheetGroup
+window.toggleNewGroupInput = toggleNewGroupInput
+window.onNewGroupInput   = onNewGroupInput
 window.saveCatSheet      = saveCatSheet
 window.openGroupManager  = openGroupManager
 window.openGroupEditor   = openGroupEditor
