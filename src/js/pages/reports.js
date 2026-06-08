@@ -196,10 +196,15 @@ function renderReports(area, actions) {
         new Chart(ctx2, {
           type: 'doughnut',
           data: {
-            labels: catEntries.map(c => c[0]),
+            // Labels include emoji icon prefix: "🍜 Food"
+            labels: catEntries.map(c => {
+              const obj = getCatObj(c[0])
+              const icon = obj?.icon || '•'
+              return `${icon} ${c[0]}`
+            }),
             datasets: [{
               data: catEntries.map(c => c[1]),
-              backgroundColor: catEntries.map(c => CAT_COLORS[c[0]] || '#636e72'),
+              backgroundColor: catEntries.map(c => (getCatObj(c[0])?.color) || CAT_COLORS[c[0]] || '#636e72'),
               borderWidth: 3,
               borderColor: bg2,
               hoverOffset: 6,
@@ -221,6 +226,7 @@ function renderReports(area, actions) {
                   },
                 },
               },
+              leaderLines: { format: (v) => fmtShort(v) },
             },
           },
           plugins: [leaderLinesPlugin],
