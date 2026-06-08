@@ -134,7 +134,6 @@ function renderDashboard(area, actions) {
         plugins: [leaderLinesPlugin]
       });
     }
-    }
     const ctx2 = document.getElementById('daily-chart')?.getContext('2d');
     if(ctx2) {
       const labels = dailyData.filter(d=>d.inc||d.exp).map(d=>d.day+'');
