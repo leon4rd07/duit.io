@@ -91,10 +91,37 @@ export const leaderLinesPlugin = {
         y2 = Math.max(safeMargin, Math.min(canvasH - safeMargin, y2))
         placedLabels[side].push(y2)
 
-        let dotX = isRight
-          ? Math.min(x2 + 14, canvasW - 6)
-          : Math.max(x2 - 14, 6)
+        // First measure label widths to know how much horizontal space we need
+        const displayLabel = String(label || '')  // KEEP emoji prefix
+        const formatter = chart.options?.plugins?.leaderLines?.format
+                        || (v => 'Rp ' + Math.round(Number(v) || 0).toLocaleString('id-ID'))
+        const amountText = formatter(Number(value) || 0)
+        const text = cs.getPropertyValue('--text').trim() || '#e1e6f0'
 
+        ctx.font = '600 11.5px system-ui, -apple-system, sans-serif'
+        const labelW = ctx.measureText(displayLabel).width
+        ctx.font = '500 10px system-ui, -apple-system, sans-serif'
+        const amountW = ctx.measureText(amountText).width
+        const maxLabelW = Math.max(labelW, amountW)
+
+        // Compute dotX so the label STARTS to the side of the dot AND fits within canvas
+        // Right side: labelX = dotX + 5, text extends right → need dotX + 5 + maxLabelW <= canvasW - margin
+        // Left side:  labelX = dotX - 5, text extends left  → need dotX - 5 - maxLabelW >= margin
+        const margin = 4
+        let dotX
+        if (isRight) {
+          const maxDotX = canvasW - margin - 5 - maxLabelW
+          const minDotX = cx + outerR + 18 // keep dot outside donut
+          dotX = Math.min(x2 + 14, maxDotX)
+          dotX = Math.max(dotX, minDotX)
+        } else {
+          const minDotX = margin + 5 + maxLabelW
+          const maxDotX = cx - outerR - 18
+          dotX = Math.max(x2 - 14, minDotX)
+          dotX = Math.min(dotX, maxDotX)
+        }
+
+        // Draw leader line (3 segments: arc → bend → dot)
         ctx.strokeStyle = text3
         ctx.beginPath()
         ctx.moveTo(x1, y1)
@@ -102,26 +129,21 @@ export const leaderLinesPlugin = {
         ctx.lineTo(dotX, y2)
         ctx.stroke()
 
+        // Draw colored dot at end of leader line
         ctx.fillStyle = ds.backgroundColor[i]
         ctx.beginPath()
         ctx.arc(dotX, y2, 3, 0, Math.PI * 2)
         ctx.fill()
 
-        const displayLabel = String(label || '')  // KEEP emoji prefix
-        const formatter = chart.options?.plugins?.leaderLines?.format
-                        || (v => 'Rp ' + Math.round(Number(v) || 0).toLocaleString('id-ID'))
-        const amountText = formatter(Number(value) || 0)
-        const text = cs.getPropertyValue('--text').trim() || '#e1e6f0'
-
         ctx.textAlign = isRight ? 'left' : 'right'
         ctx.textBaseline = 'middle'
 
-        const maxTextW = isRight
-          ? Math.max(20, canvasW - dotX - 8)
-          : Math.max(20, dotX - 8)
+        // Truncate label only if still doesn't fit (rare with our dotX clamping)
+        const availableW = isRight ? (canvasW - dotX - 5 - margin)
+                                   : (dotX - 5 - margin)
         ctx.font = '600 11.5px system-ui, -apple-system, sans-serif'
         let truncatedLabel = displayLabel
-        while (ctx.measureText(truncatedLabel).width > maxTextW && truncatedLabel.length > 3) {
+        while (ctx.measureText(truncatedLabel).width > availableW && truncatedLabel.length > 3) {
           truncatedLabel = truncatedLabel.slice(0, -2) + '…'
         }
 
