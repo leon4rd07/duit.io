@@ -7,6 +7,7 @@ import { fmt, fmtShort, fmtDate, monthKey, monthLabel } from '../lib/utils.js'
 import { getCatObj, CATEGORIES, getCatGroups, CAT_COLORS } from '../lib/categories.js'
 import { AVATAR_COLORS } from '../lib/config.js'
 import * as DB from '../lib/supabase.js'
+import { leaderLinesPlugin } from '../ui/charts.js'
 
 
 // In-page state
@@ -214,6 +215,7 @@ function renderReports(area, actions) {
             responsive: true,
             maintainAspectRatio: false,
             cutout: '62%',
+            layout: { padding: { top: 24, right: 90, bottom: 24, left: 90 } },
             plugins: {
               legend: { display: false },
               tooltip: {
@@ -227,6 +229,7 @@ function renderReports(area, actions) {
               },
             },
           },
+          plugins: [leaderLinesPlugin],
         })
       }
     }

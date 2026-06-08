@@ -8,6 +8,7 @@ import { fmt, fmtShort, fmtDate, monthKey, monthLabel } from '../lib/utils.js'
 import { getCatObj, CAT_COLORS } from '../lib/categories.js'
 import { AVATAR_COLORS, BANK_ICONS} from '../lib/config.js'
 import { t } from '../lib/i18n.js'
+import { leaderLinesPlugin } from '../ui/charts.js'
 
 function isBalHidden(id) { try { if (localStorage.getItem('hide_total_balance')==='1') return true; const p = JSON.parse(localStorage.getItem('acct_prefs_v1')||'{}'); return p[`hide_bal_${id}`]===true } catch { return false } }
 function maskIf(hidden, str) { return hidden ? '••••••' : str }
@@ -67,26 +68,12 @@ function renderDashboard(area, actions) {
       <div class="card">
         <div class="section-title mb-12">${t('dash.cat_by_spending')}</div>
         ${catEntries.length ? `
-          <div class="donut-wrap" style="height:240px">
+          <div class="donut-wrap" style="height:280px">
             <canvas id="cat-chart"></canvas>
             <div class="donut-center">
               <div class="donut-center-label">${t('dash.total_out')}</div>
               <div class="donut-center-value">${fmtShort(expense)}</div>
             </div>
-          </div>
-          <div class="dash-cat-list">
-            ${catEntries.slice(0,5).map(([cat,val])=>{
-              const pct = expense ? ((val/expense)*100).toFixed(1) : '0.0';
-              const obj = getCatObj(cat);
-              const icon = obj?.icon || '•';
-              const color = obj?.color || CAT_COLORS[cat] || '#636e72';
-              return `<div class="dash-cat-row">
-                <span class="dash-cat-dot" style="background:${color}"></span>
-                <span class="dash-cat-name">${icon} ${cat}</span>
-                <span class="dash-cat-pct">${pct}%</span>
-                <span class="dash-cat-val">${fmtShort(val)}</span>
-              </div>`;
-            }).join('')}
           </div>
         ` : `<div class="empty-state" style="padding:20px"><div class="empty-icon">📂</div><p>${t('dash.empty_data')}</p></div>`}
       </div>
@@ -145,11 +132,13 @@ function renderDashboard(area, actions) {
           responsive: true,
           maintainAspectRatio: false,
           cutout: '65%',
+          layout: { padding: { top: 20, right: 90, bottom: 20, left: 90 } },
           plugins: {
             legend: { display: false },
             tooltip: { callbacks: { label: d => ' ' + fmtShort(d.raw) } },
           }
-        }
+        },
+        plugins: [leaderLinesPlugin]
       });
     }
     const ctx2 = document.getElementById('daily-chart')?.getContext('2d');
