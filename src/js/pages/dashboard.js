@@ -67,7 +67,15 @@ function renderDashboard(area, actions) {
     <div class="grid-2 mb-16">
       <div class="card">
         <div class="section-title mb-12">${t('dash.cat_by_spending')}</div>
-        ${catEntries.length ? `<div class="chart-wrap" style="height:280px"><canvas id="cat-chart"></canvas></div>` : `<div class="empty-state" style="padding:20px"><div class="empty-icon">📂</div><p>${t('dash.empty_data')}</p></div>`}
+        ${catEntries.length ? `
+          <div class="donut-wrap" style="height:280px">
+            <canvas id="cat-chart"></canvas>
+            <div class="donut-center">
+              <div class="donut-center-label">${t('dash.total_out')}</div>
+              <div class="donut-center-value">${fmtShort(expense)}</div>
+            </div>
+          </div>
+        ` : `<div class="empty-state" style="padding:20px"><div class="empty-icon">📂</div><p>${t('dash.empty_data')}</p></div>`}
       </div>
       <div class="card">
         <div class="section-title mb-12">${t('dash.daily_cashflow')}</div>

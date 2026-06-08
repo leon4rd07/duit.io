@@ -44,14 +44,14 @@ export const leaderLinesPlugin = {
       ctx.lineWidth = 1
 
       const placedLabels = { left: [], right: [] }
-      const labelHeight = 18
-      const safeMargin = 14
+      const labelHeight = 28  // 2-line label needs more vertical space
+      const safeMargin = 18
       const canvasW = canvas.width / (window.devicePixelRatio || 1)
       const canvasH = canvas.height / (window.devicePixelRatio || 1)
 
       const isSingleDominant = topItems.length === 1 || topItems[0].pct >= 0.97
 
-      items.forEach(({ i, arc, label, pct }) => {
+      items.forEach(({ i, arc, label, value, pct }) => {
         if (!topIdxSet.has(i)) return
         if (pct < 0.02) return
 
@@ -107,18 +107,35 @@ export const leaderLinesPlugin = {
         ctx.arc(dotX, y2, 3, 0, Math.PI * 2)
         ctx.fill()
 
-        const cleanLabel = (label || '').replace(/^[^\w\s]+\s*/, '') || label || ''
-        ctx.fillStyle = text2
+        const displayLabel = String(label || '')  // KEEP emoji prefix
+        const formatter = chart.options?.plugins?.leaderLines?.format
+                        || (v => 'Rp ' + Math.round(Number(v) || 0).toLocaleString('id-ID'))
+        const amountText = formatter(Number(value) || 0)
+        const text = cs.getPropertyValue('--text').trim() || '#e1e6f0'
+
         ctx.textAlign = isRight ? 'left' : 'right'
         ctx.textBaseline = 'middle'
+
         const maxTextW = isRight
           ? Math.max(20, canvasW - dotX - 8)
           : Math.max(20, dotX - 8)
-        let displayLabel = cleanLabel
-        while (ctx.measureText(displayLabel).width > maxTextW && displayLabel.length > 3) {
-          displayLabel = displayLabel.slice(0, -2) + '…'
+        ctx.font = '600 11.5px system-ui, -apple-system, sans-serif'
+        let truncatedLabel = displayLabel
+        while (ctx.measureText(truncatedLabel).width > maxTextW && truncatedLabel.length > 3) {
+          truncatedLabel = truncatedLabel.slice(0, -2) + '…'
         }
-        ctx.fillText(displayLabel, dotX + sideMul * 5, y2)
+
+        const labelX = dotX + sideMul * 5
+
+        // Line 1: name with emoji
+        ctx.fillStyle = text
+        ctx.font = '600 11.5px system-ui, -apple-system, sans-serif'
+        ctx.fillText(truncatedLabel, labelX, y2 - 7)
+
+        // Line 2: amount (smaller, dimmer)
+        ctx.fillStyle = text2
+        ctx.font = '500 10px system-ui, -apple-system, sans-serif'
+        ctx.fillText(amountText, labelX, y2 + 7)
       })
 
       ctx.restore()
