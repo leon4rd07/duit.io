@@ -14,15 +14,11 @@ const defaultScales = {
 /**
  * Leader-lines plugin for doughnut charts.
  *
- * Algorithm (5 passes):
- *   1. Compute initial positions per top-N segment based on arc midAngle
- *   1.5. REBALANCE sides — if one side has many more labels, move the most
- *        angularly-ambiguous ones (closest to top/bottom) to the other side.
- *        Reflect x2 so the leader line bends cleanly toward the new side.
- *   2. Resolve Y collisions per side via strict ordering + clamp+shift
- *   2.5. Compute UNIFORM dotX per side based on widest label on that side.
- *        All dots align vertically on each side — labels look orderly.
- *   3. Draw lines, dots, and labels.
+ * Each label sits CLOSE to its slice (short leader line, no big empty space).
+ *   1. Compute initial position per top-N segment from arc midAngle
+ *   2. Resolve Y collisions per side via strict ordering
+ *   3. Position dotX just past the bend point — short, clear lines to each slice
+ *   4. Draw lines, dots, labels
  *
  * Options (chart.options.plugins.leaderLines):
  *   - showAmount: boolean — second line with amount (default: false)
@@ -57,10 +53,11 @@ export const leaderLinesPlugin = {
       const canvasW = canvas.width  / dpr
       const canvasH = canvas.height / dpr
       const safeY   = 12
-      const labelGap = showAmount ? 32 : 24
+      const labelGap = showAmount ? 32 : 22
       const margin  = 4
+      const lineExtension = 24 // px past the bend point — keeps lines SHORT
 
-      // ── Pass 1: initial positions
+      // Pass 1: initial positions
       const items = meta.data.map((arc, i) => ({
         i, arc, value: Number(dataArr[i] || 0), label: String(labels[i] || ''),
         pct: Number(dataArr[i] || 0) / total,
@@ -79,46 +76,30 @@ export const leaderLinesPlugin = {
 
         const x1 = cx + Math.cos(midAngle) * outerR
         const y1 = cy + Math.sin(midAngle) * outerR
-        const x2 = cx + Math.cos(midAngle) * (outerR + 16)
-        const y2 = cy + Math.sin(midAngle) * (outerR + 16)
-        const naturalRight = Math.cos(midAngle) >= 0
+        const x2 = cx + Math.cos(midAngle) * (outerR + 14)
+        const y2 = cy + Math.sin(midAngle) * (outerR + 14)
+        const isRight = Math.cos(midAngle) >= 0
+
+        // Pre-measure label width for dotX clamping
+        ctx.font = '600 11.5px system-ui, -apple-system, sans-serif'
+        const labelW = ctx.measureText(label).width
+        let amountW = 0
+        if (showAmount) {
+          ctx.font = '500 10px system-ui, -apple-system, sans-serif'
+          amountW = ctx.measureText(formatter(value)).width
+        }
+        const myMaxW = Math.max(labelW, amountW)
 
         placements.push({
           i, label, value, pct, midAngle,
           x1, y1, x2, y2, cx, cy, outerR,
-          isRight: naturalRight,
-          side: naturalRight ? 'right' : 'left',
-          sideMul: naturalRight ? 1 : -1,
+          isRight, side: isRight ? 'right' : 'left', sideMul: isRight ? 1 : -1,
           color: ds.backgroundColor[i] || text2,
+          labelW: myMaxW,
         })
       })
 
-      // ── Pass 1.5: rebalance sides if heavily imbalanced
-      const rightCount = placements.filter(p => p.side === 'right').length
-      const leftCount  = placements.filter(p => p.side === 'left').length
-      const diff = leftCount - rightCount // positive if more on left
-      if (Math.abs(diff) > 1 && placements.length >= 3) {
-        const fromSide = diff > 0 ? 'left' : 'right'
-        const toSide   = diff > 0 ? 'right' : 'left'
-        const newMul   = toSide === 'right' ? 1 : -1
-        const moveCount = Math.floor(Math.abs(diff) / 2)
-
-        // Pick the most angularly-ambiguous labels (smallest |cos|, i.e. near top/bottom)
-        const fromList = placements.filter(p => p.side === fromSide)
-          .sort((a, b) => Math.abs(Math.cos(a.midAngle)) - Math.abs(Math.cos(b.midAngle)))
-
-        for (let k = 0; k < moveCount; k++) {
-          const p = fromList[k]
-          if (!p) break
-          p.side = toSide
-          p.isRight = (toSide === 'right')
-          p.sideMul = newMul
-          // Reflect x2 across vertical axis so bend point is on the new side
-          p.x2 = p.cx + (toSide === 'right' ? 1 : -1) * Math.abs(Math.cos(p.midAngle)) * (p.outerR + 16)
-        }
-      }
-
-      // ── Pass 2: resolve Y collisions per side (strict ordering)
+      // Pass 2: resolve Y collisions per side (strict ordering)
       ;['left', 'right'].forEach(side => {
         const sideList = placements.filter(p => p.side === side).sort((a, b) => a.y2 - b.y2)
         const n = sideList.length
@@ -140,31 +121,42 @@ export const leaderLinesPlugin = {
         }
       })
 
-      // ── Pass 2.5: uniform dotX per side (vertical alignment)
-      ;['left', 'right'].forEach(side => {
-        const sideList = placements.filter(p => p.side === side)
-        if (!sideList.length) return
-        let maxW = 0
-        ctx.font = '600 11.5px system-ui, -apple-system, sans-serif'
-        sideList.forEach(p => { maxW = Math.max(maxW, ctx.measureText(p.label).width) })
-        if (showAmount) {
-          ctx.font = '500 10px system-ui, -apple-system, sans-serif'
-          sideList.forEach(p => { maxW = Math.max(maxW, ctx.measureText(formatter(p.value)).width) })
+      // Pass 3: compute dotX per label (close to bend point — short lines)
+      placements.forEach(p => {
+        const minDotXRight = p.cx + p.outerR + 16
+        const minDotXLeft  = p.cx - p.outerR - 16
+        if (p.isRight) {
+          let dotX = p.x2 + lineExtension
+          const maxDotX = canvasW - margin - 6 - p.labelW
+          dotX = Math.min(dotX, maxDotX)  // never overflow right
+          dotX = Math.max(dotX, minDotXRight) // never inside donut
+          p.dotX = dotX
+        } else {
+          let dotX = p.x2 - lineExtension
+          const minDotXClamp = margin + 6 + p.labelW
+          dotX = Math.max(dotX, minDotXClamp)  // never overflow left
+          dotX = Math.min(dotX, minDotXLeft)   // never inside donut (from left)
+          p.dotX = dotX
         }
-        const commonDotX = side === 'right'
-          ? canvasW - margin - 6 - maxW
-          : margin + 6 + maxW
-        sideList.forEach(p => { p.dotX = commonDotX; p.labelMaxW = maxW })
       })
 
-      // ── Pass 3: draw all
+      // Pass 4: draw all
       ctx.save()
       ctx.lineWidth = 1
 
       placements.forEach(p => {
-        const { x1, y1, x2, y2, isRight, sideMul, label, value, color, dotX } = p
+        const { x1, y1, x2, y2, isRight, sideMul, label, value, color, dotX, labelW } = p
 
-        // Leader line (3 segments: arc → bend → dot)
+        // Re-clamp dotX one more time using ACTUAL truncated label
+        // (in case label needs to be shorter for tight canvas)
+        let drawLabel = label
+        ctx.font = '600 11.5px system-ui, -apple-system, sans-serif'
+        const availW = isRight ? (canvasW - dotX - 6 - margin) : (dotX - 6 - margin)
+        while (ctx.measureText(drawLabel).width > availW && drawLabel.length > 3) {
+          drawLabel = drawLabel.slice(0, -2) + '…'
+        }
+
+        // Leader line (3 segments)
         ctx.strokeStyle = text3
         ctx.beginPath()
         ctx.moveTo(x1, y1)
@@ -185,14 +177,14 @@ export const leaderLinesPlugin = {
         if (showAmount) {
           ctx.fillStyle = text
           ctx.font = '600 11.5px system-ui, -apple-system, sans-serif'
-          ctx.fillText(label, labelX, y2 - 7)
+          ctx.fillText(drawLabel, labelX, y2 - 7)
           ctx.fillStyle = text2
           ctx.font = '500 10px system-ui, -apple-system, sans-serif'
           ctx.fillText(formatter(value), labelX, y2 + 7)
         } else {
           ctx.fillStyle = text
           ctx.font = '600 11.5px system-ui, -apple-system, sans-serif'
-          ctx.fillText(label, labelX, y2)
+          ctx.fillText(drawLabel, labelX, y2)
         }
       })
 

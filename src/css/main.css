@@ -1255,7 +1255,8 @@ input[type="date"] {
 
 /* Big donut with center label */
 .donut-wrap {
-  position:relative; height:320px; margin:8px -8px 16px;
+  position:relative; height:320px; max-width:640px;
+  margin:8px auto 16px;
   display:flex; align-items:center; justify-content:center;
 }
 .donut-wrap canvas { max-height:320px; width:100% }
@@ -1267,7 +1268,7 @@ input[type="date"] {
 .donut-center-value { font-size:18px; font-weight:700; color:var(--text) }
 
 @media (max-width: 480px) {
-  .donut-wrap { height: 300px; margin: 8px -4px 16px }
+  .donut-wrap { height: 300px; margin: 8px auto 16px; max-width: 100% }
 }
 
 /* Category rows */
