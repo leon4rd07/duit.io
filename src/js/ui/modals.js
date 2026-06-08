@@ -793,6 +793,13 @@ function openAddTransaction() {
     );
 
     attachMoneyFormatter(document.getElementById('tx-amount'));
+    syncDateQuickButtons(); // sync quick-pill active state with date input value
+    // Bind date input change → re-sync quick pills (once per element)
+    const dateEl = document.getElementById('tx-date');
+    if (dateEl && !dateEl.dataset.syncBound) {
+      dateEl.addEventListener('input', syncDateQuickButtons);
+      dateEl.dataset.syncBound = '1';
+    }
     const modalEl = document.getElementById('tx-modal');
     if (modalEl) modalEl.classList.add('open');
     setTimeout(() => document.getElementById('tx-amount')?.focus(), 100);
@@ -815,6 +822,7 @@ function openEditTx(id) {
     setVal('tx-date', t.date);
     populateTxAccounts(t.account_id, t.to_account_id, t.category);
     attachMoneyFormatter(document.getElementById('tx-amount'));
+    syncDateQuickButtons(); // sync quick-pill active state with date input
     const modalEl = document.getElementById('tx-modal');
     if (modalEl) modalEl.classList.add('open');
   } catch(err) {
@@ -1324,7 +1332,30 @@ window.openEditTx             = openEditTx
 window.openEditAccount        = openEditAccount
 window.logRecurring           = typeof logRecurring !== 'undefined' ? logRecurring : () => {}
 
-// Quick date buttons in tx modal
+// Quick date buttons in tx modal — auto-sync .active class with date input value
+function syncDateQuickButtons() {
+  const dateEl = document.getElementById('tx-date');
+  if (!dateEl) return;
+  const current = dateEl.value;
+  const today  = toLocalDateString(new Date());
+  const ytdD   = new Date(); ytdD.setDate(ytdD.getDate() - 1);
+  const d2D    = new Date(); d2D.setDate(d2D.getDate() - 2);
+  const w1D    = new Date(); w1D.setDate(w1D.getDate() - 7);
+  const yesterday = toLocalDateString(ytdD);
+  const days2ago  = toLocalDateString(d2D);
+  const week1ago  = toLocalDateString(w1D);
+
+  document.querySelectorAll('.date-quick-btn').forEach(btn => {
+    const onclickStr = btn.getAttribute('onclick') || '';
+    const match =
+      (current === today      && onclickStr.includes("'today'")) ||
+      (current === yesterday  && onclickStr.includes("'yesterday'")) ||
+      (current === days2ago   && onclickStr.includes('(-2)')) ||
+      (current === week1ago   && onclickStr.includes('(-7)'));
+    btn.classList.toggle('active', match);
+  });
+}
+
 function setTxDateQuick(offsetOrKey) {
   const dateEl = document.getElementById('tx-date');
   if (!dateEl) return;
@@ -1332,10 +1363,10 @@ function setTxDateQuick(offsetOrKey) {
   if (offsetOrKey === 'yesterday') d.setDate(d.getDate() - 1);
   else if (typeof offsetOrKey === 'number') d.setDate(d.getDate() + offsetOrKey);
   dateEl.value = toLocalDateString(d);
-  document.querySelectorAll('.date-quick-btn').forEach(b => b.classList.remove('active'));
-  if (typeof event !== 'undefined' && event.currentTarget) event.currentTarget.classList.add('active');
+  syncDateQuickButtons();
 }
 window.setTxDateQuick = setTxDateQuick;
+window.syncDateQuickButtons = syncDateQuickButtons;
 
 // ===== WISHLIST MODALS =====
 let _editingWishlistId = null;

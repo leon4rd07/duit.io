@@ -8,6 +8,7 @@ import { fmt, fmtShort, fmtDate, monthKey, monthLabel } from '../lib/utils.js'
 import { getCatObj, CAT_COLORS } from '../lib/categories.js'
 import { AVATAR_COLORS, BANK_ICONS} from '../lib/config.js'
 import { t } from '../lib/i18n.js'
+import { leaderLinesPlugin } from '../ui/charts.js'
 
 function isBalHidden(id) { try { if (localStorage.getItem('hide_total_balance')==='1') return true; const p = JSON.parse(localStorage.getItem('acct_prefs_v1')||'{}'); return p[`hide_bal_${id}`]===true } catch { return false } }
 function maskIf(hidden, str) { return hidden ? '••••••' : str }
@@ -66,11 +67,11 @@ function renderDashboard(area, actions) {
     <div class="grid-2 mb-16">
       <div class="card">
         <div class="section-title mb-12">${t('dash.cat_by_spending')}</div>
-        ${catEntries.length ? `<div class="chart-wrap" style="height:180px"><canvas id="cat-chart"></canvas></div>` : `<div class="empty-state" style="padding:20px"><div class="empty-icon">📂</div><p>${t('dash.empty_data')}</p></div>`}
+        ${catEntries.length ? `<div class="chart-wrap" style="height:280px"><canvas id="cat-chart"></canvas></div>` : `<div class="empty-state" style="padding:20px"><div class="empty-icon">📂</div><p>${t('dash.empty_data')}</p></div>`}
       </div>
       <div class="card">
         <div class="section-title mb-12">${t('dash.daily_cashflow')}</div>
-        <div class="chart-wrap" style="height:180px"><canvas id="daily-chart"></canvas></div>
+        <div class="chart-wrap" style="height:280px"><canvas id="daily-chart"></canvas></div>
       </div>
     </div>
 
@@ -105,9 +106,34 @@ function renderDashboard(area, actions) {
       const ctx1 = document.getElementById('cat-chart')?.getContext('2d');
       if(ctx1) new Chart(ctx1, {
         type:'doughnut',
-        data:{labels:catEntries.map(c=>c[0]),datasets:[{data:catEntries.map(c=>c[1]),backgroundColor:catEntries.map(c=>CAT_COLORS[c[0]]||'#636e72'),borderWidth:0,hoverOffset:4}]},
-        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:d=>' '+fmtShort(d.raw)}}},cutout:'65%'}
+        data:{
+          // Labels include emoji icon prefix: "🍜 Food"
+          labels: catEntries.map(c => {
+            const obj = getCatObj(c[0]);
+            const icon = obj?.icon || '•';
+            return `${icon} ${c[0]}`;
+          }),
+          datasets:[{
+            data: catEntries.map(c => c[1]),
+            backgroundColor: catEntries.map(c => (getCatObj(c[0])?.color) || CAT_COLORS[c[0]] || '#636e72'),
+            borderWidth: 0,
+            hoverOffset: 4,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '65%',
+          layout: { padding: { top: 20, right: 80, bottom: 20, left: 80 } },
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: d => ' ' + fmtShort(d.raw) } },
+            leaderLines: { format: (v) => fmtShort(v) }, // amount formatter
+          }
+        },
+        plugins: [leaderLinesPlugin]
       });
+    }
     }
     const ctx2 = document.getElementById('daily-chart')?.getContext('2d');
     if(ctx2) {
