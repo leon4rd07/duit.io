@@ -13,12 +13,18 @@ const defaultScales = {
 
 /**
  * Leader-lines plugin for doughnut charts.
- * Draws thin lines from each top-5 segment to a colored dot + single-line label
- * (emoji + name) outside the donut. Single-line keeps positioning reliable.
+ *
+ * Two-pass algorithm:
+ *   Pass 1: compute initial y position for each top-5 segment based on its arc midpoint
+ *   Pass 2: sort labels per side (left/right) by y, then enforce minimum vertical gap
+ *           between consecutive labels. If overflow, shift the whole stack to fit.
+ *
+ * Result: labels never overlap, even when adjacent slices have very similar angles.
  *
  * Options (via chart.options.plugins.leaderLines):
- *   - showAmount: boolean — also draw amount under label (default: false)
+ *   - showAmount: boolean — draw amount on a second line below label (default: false)
  *   - format: (v) => string — amount formatter when showAmount=true
+ *   - topN: number — how many top segments to label (default: 5)
  */
 export const leaderLinesPlugin = {
   id: 'leaderLines',
@@ -28,71 +34,94 @@ export const leaderLinesPlugin = {
       const meta = chart.getDatasetMeta(0)
       if (!meta || !meta.data || !meta.data.length) return
 
-      const ds = chart.data.datasets[0]
+      const ds      = chart.data.datasets[0]
       const dataArr = ds.data
-      const labels = chart.data.labels
-      const total = dataArr.reduce((s, v) => s + Number(v || 0), 0)
+      const labels  = chart.data.labels
+      const total   = dataArr.reduce((s, v) => s + Number(v || 0), 0)
       if (!total) return
 
-      const opts = chart.options?.plugins?.leaderLines || {}
+      const opts       = chart.options?.plugins?.leaderLines || {}
       const showAmount = !!opts.showAmount
+      const topN       = opts.topN || 5
       const formatter  = opts.format || (v => 'Rp ' + Math.round(Number(v) || 0).toLocaleString('id-ID'))
 
-      const cs = getComputedStyle(document.documentElement)
-      const text   = (cs.getPropertyValue('--text').trim()  || '#e1e6f0')
-      const text2  = (cs.getPropertyValue('--text2').trim() || '#8b92a8')
-      const text3  = (cs.getPropertyValue('--text3').trim() || '#5a6075')
+      const cs    = getComputedStyle(document.documentElement)
+      const text  = (cs.getPropertyValue('--text').trim()  || '#e1e6f0')
+      const text2 = (cs.getPropertyValue('--text2').trim() || '#8b92a8')
+      const text3 = (cs.getPropertyValue('--text3').trim() || '#5a6075')
 
-      // Top-5 segments by value
+      const dpr     = window.devicePixelRatio || 1
+      const canvasW = canvas.width  / dpr
+      const canvasH = canvas.height / dpr
+      const safeY   = 12
+      const labelGap = showAmount ? 32 : 24 // strict vertical gap to prevent overlap
+
+      // ───── PASS 1: compute initial positions for each top-N segment ─────
       const items = meta.data.map((arc, i) => ({
-        i, arc, value: Number(dataArr[i] || 0), label: labels[i] || '',
+        i, arc, value: Number(dataArr[i] || 0), label: String(labels[i] || ''),
         pct: Number(dataArr[i] || 0) / total,
       }))
-      const topItems = items.slice().sort((a, b) => b.value - a.value).slice(0, 5)
+      const topItems  = items.slice().sort((a, b) => b.value - a.value).slice(0, topN)
       const topIdxSet = new Set(topItems.map(t => t.i))
-
-      const dpr      = window.devicePixelRatio || 1
-      const canvasW  = canvas.width  / dpr
-      const canvasH  = canvas.height / dpr
-      const labelGap = showAmount ? 28 : 18 // vertical spacing for collision avoidance
-      const safeY    = 14
-
-      const placed = { left: [], right: [] }
       const isSingleDominant = topItems.length === 1 || (topItems[0]?.pct >= 0.97)
 
-      ctx.save()
-      ctx.lineWidth = 1
-
+      const placements = []
       items.forEach(({ i, arc, label, value, pct }) => {
-        if (!topIdxSet.has(i)) return
-        if (pct < 0.002) return // skip only truly tiny < 0.2% to avoid pixel-thin segments
+        if (!topIdxSet.has(i)) return // top-N only, but NO size threshold — show all top-N
 
         const cx = arc.x, cy = arc.y, outerR = arc.outerRadius
-
         let midAngle
         if (isSingleDominant && pct >= 0.97) midAngle = -Math.PI / 4
         else midAngle = (arc.startAngle + arc.endAngle) / 2
 
         const x1 = cx + Math.cos(midAngle) * outerR
         const y1 = cy + Math.sin(midAngle) * outerR
-        const x2 = cx + Math.cos(midAngle) * (outerR + 14)
-        let   y2 = cy + Math.sin(midAngle) * (outerR + 14)
+        const x2 = cx + Math.cos(midAngle) * (outerR + 16)
+        const y2 = cy + Math.sin(midAngle) * (outerR + 16)
         const isRight = Math.cos(midAngle) >= 0
-        const side    = isRight ? 'right' : 'left'
-        const sideMul = isRight ? 1 : -1
 
-        // Clamp y2 within canvas, then collision-avoid
-        y2 = Math.max(safeY, Math.min(canvasH - safeY, y2))
-        for (const py of placed[side]) {
-          if (Math.abs(y2 - py) < labelGap) {
-            y2 = y2 < py ? py - labelGap : py + labelGap
-          }
+        placements.push({
+          i, label, value, pct, x1, y1, x2, y2, cx, cy, outerR,
+          isRight, side: isRight ? 'right' : 'left', sideMul: isRight ? 1 : -1,
+          color: ds.backgroundColor[i] || text2,
+        })
+      })
+
+      // ───── PASS 2: resolve collisions per side using strict ordering ─────
+      ;['left', 'right'].forEach(side => {
+        const sideList = placements.filter(p => p.side === side).sort((a, b) => a.y2 - b.y2)
+        const n = sideList.length
+        if (n === 0) return
+
+        // Walk top-to-bottom and enforce y[k] >= y[k-1] + labelGap
+        for (let k = 1; k < n; k++) {
+          const minY = sideList[k - 1].y2 + labelGap
+          if (sideList[k].y2 < minY) sideList[k].y2 = minY
         }
-        y2 = Math.max(safeY, Math.min(canvasH - safeY, y2))
-        placed[side].push(y2)
 
-        // Measure label widths
-        const displayLabel = String(label)
+        // If bottom-most exceeds canvas, shift stack up
+        const last = sideList[n - 1].y2
+        const maxY = canvasH - safeY
+        if (last > maxY) {
+          const shift = last - maxY
+          sideList.forEach(p => { p.y2 -= shift })
+        }
+        // If top-most below safeY, shift stack down (rare but possible)
+        const first = sideList[0].y2
+        if (first < safeY) {
+          const shift = safeY - first
+          sideList.forEach(p => { p.y2 += shift })
+        }
+      })
+
+      // ───── PASS 3: draw all labels ─────
+      ctx.save()
+      ctx.lineWidth = 1
+
+      placements.forEach(p => {
+        const { x1, y1, x2, y2, isRight, sideMul, label, value, color, cx, outerR } = p
+
+        const displayLabel = label
         const amountText   = showAmount ? formatter(value) : ''
 
         ctx.font = '600 11.5px system-ui, -apple-system, sans-serif'
@@ -119,7 +148,7 @@ export const leaderLinesPlugin = {
           dotX = Math.min(dotX, maxDotX)
         }
 
-        // Draw leader line (3 segments)
+        // Draw leader line (arc-edge → bend → dot)
         ctx.strokeStyle = text3
         ctx.beginPath()
         ctx.moveTo(x1, y1)
@@ -127,13 +156,13 @@ export const leaderLinesPlugin = {
         ctx.lineTo(dotX, y2)
         ctx.stroke()
 
-        // Colored dot at end of line
-        ctx.fillStyle = ds.backgroundColor[i] || text2
+        // Colored dot
+        ctx.fillStyle = color
         ctx.beginPath()
         ctx.arc(dotX, y2, 3.5, 0, Math.PI * 2)
         ctx.fill()
 
-        // Truncate label if absolutely needed
+        // Truncate label if it still won't fit (rare)
         const availW = isRight ? (canvasW - dotX - 5 - margin) : (dotX - 5 - margin)
         ctx.font = '600 11.5px system-ui, -apple-system, sans-serif'
         let drawLabel = displayLabel
@@ -145,7 +174,6 @@ export const leaderLinesPlugin = {
         ctx.textAlign = isRight ? 'left' : 'right'
 
         if (showAmount) {
-          // 2-line: name on top, amount below
           ctx.textBaseline = 'middle'
           ctx.fillStyle = text
           ctx.fillText(drawLabel, labelX, y2 - 7)
@@ -153,7 +181,6 @@ export const leaderLinesPlugin = {
           ctx.font = '500 10px system-ui, -apple-system, sans-serif'
           ctx.fillText(amountText, labelX, y2 + 7)
         } else {
-          // 1-line: just name centered on dot y
           ctx.textBaseline = 'middle'
           ctx.fillStyle = text
           ctx.fillText(drawLabel, labelX, y2)
