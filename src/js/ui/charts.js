@@ -65,7 +65,7 @@ export const leaderLinesPlugin = {
 
       items.forEach(({ i, arc, label, value, pct }) => {
         if (!topIdxSet.has(i)) return
-        if (pct < 0.02) return
+        if (pct < 0.002) return // skip only truly tiny < 0.2% to avoid pixel-thin segments
 
         const cx = arc.x, cy = arc.y, outerR = arc.outerRadius
 

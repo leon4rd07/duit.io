@@ -197,11 +197,14 @@ function renderReports(area, actions) {
         new Chart(ctx2, {
           type: 'doughnut',
           data: {
-            // Labels include emoji icon prefix: "🍜 Food"
+            // Clean labels: icon + name + percentage (no double-emoji)
             labels: catEntries.map(c => {
-              const obj = getCatObj(c[0])
+              const obj  = getCatObj(c[0])
               const icon = obj?.icon || '•'
-              return `${icon} ${c[0]}`
+              // Use obj.name (clean) if found, else strip emoji prefix from c[0]
+              const name = obj?.name || c[0].replace(/^\S+\s+/, '').trim() || c[0]
+              const pct  = catTotal ? ((c[1] / catTotal) * 100).toFixed(1) : '0.0'
+              return `${icon} ${name} ${pct}%`
             }),
             datasets: [{
               data: catEntries.map(c => c[1]),
@@ -220,11 +223,8 @@ function renderReports(area, actions) {
               legend: { display: false },
               tooltip: {
                 callbacks: {
-                  label: ctx => {
-                    const val = ctx.raw
-                    const pct = catTotal ? ((val / catTotal) * 100).toFixed(1) : '0.0'
-                    return ` ${ctx.label}: ${fmtShort(val)} (${pct}%)`
-                  },
+                  // ctx.label already contains "icon name pct%" — just append amount
+                  label: ctx => ` ${ctx.label}: ${fmtShort(ctx.raw)}`,
                 },
               },
             },
