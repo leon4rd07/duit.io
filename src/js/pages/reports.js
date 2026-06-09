@@ -209,15 +209,14 @@ function renderReports(area, actions) {
             datasets: [{
               data: catEntries.map(c => c[1]),
               backgroundColor: catEntries.map(c => (getCatObj(c[0])?.color) || CAT_COLORS[c[0]] || '#636e72'),
-              borderWidth: 3,
-              borderColor: bg2,
-              hoverOffset: 6,
+              borderWidth: 0,
+              hoverOffset: 4,
             }],
           },
           options: {
             responsive: true,
             maintainAspectRatio: false,
-            cutout: '62%',
+            cutout: '65%',
             layout: { padding: { top: 24, right: 90, bottom: 24, left: 90 } },
             plugins: {
               legend: { display: false },

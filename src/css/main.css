@@ -666,8 +666,8 @@ img{max-width:100%;display:block}
 .transfer-hist-item{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--bg3);border-radius:10px;margin-bottom:8px}
 
 /* ===== TOAST ===== */
-#toast{position:fixed;bottom:calc(110px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%) translateY(100px);background:var(--bg4);border:1px solid var(--border2);color:var(--text);padding:11px 20px;border-radius:10px;font-size:13.5px;font-weight:500;z-index:999;transition:transform 0.3s ease;white-space:nowrap;box-shadow:var(--shadow);pointer-events:none}
-#toast.show{transform:translateX(-50%) translateY(0)}
+#toast{position:fixed;bottom:calc(110px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);background:var(--bg4);border:1px solid var(--border2);color:var(--text);padding:11px 20px;border-radius:10px;font-size:13.5px;font-weight:500;z-index:999;opacity:0;visibility:hidden;transition:opacity 0.25s ease, visibility 0.25s ease;white-space:nowrap;box-shadow:var(--shadow);pointer-events:none}
+#toast.show{opacity:1;visibility:visible}
 #toast.success{border-color:rgba(74,222,128,0.3);color:var(--green)}
 #toast.error{border-color:rgba(255,95,109,0.3);color:var(--red)}
 
