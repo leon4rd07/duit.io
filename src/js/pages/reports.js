@@ -168,13 +168,16 @@ function renderReports(area, actions) {
     </div>`
 
   setTimeout(() => {
+    const _cs = getComputedStyle(document.documentElement)
+    const tickColor = (_cs.getPropertyValue('--text2').trim() || '#5a6075')
+    const gridColor = (_cs.getPropertyValue('--border').trim() || 'rgba(255,255,255,0.06)')
     const chartDefaults = {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: { legend: { labels: { color: '#8b92a8', font: { size: 11 } } }, tooltip: { callbacks: { label: d => ' ' + fmtShort(d.raw) } } },
+      plugins: { legend: { labels: { color: tickColor, font: { size: 11 } } }, tooltip: { callbacks: { label: d => ' ' + fmtShort(d.raw) } } },
       scales: {
-        x: { grid: { display: false }, ticks: { color: '#5a6075', font: { size: 11 } } },
-        y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#5a6075', font: { size: 11 }, callback: v => fmtShort(v) } },
+        x: { grid: { display: false }, ticks: { color: tickColor, font: { size: 11 } } },
+        y: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 11 }, callback: v => fmtShort(v) } },
       },
     }
 

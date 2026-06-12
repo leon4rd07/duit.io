@@ -120,7 +120,10 @@ function renderAccounts(area, actions) {
 function renderAccountCard(a, prefs, hideTotal) {
   const txCount = state.transactions.filter(t => t.account_id===a.id || t.to_account_id===a.id).length
   const accColor = a.color || 'var(--accent)'
-  const note = prefs[`note_${a.id}`] || ''
+  // Note: prefer Supabase-synced value (a.note), fallback to local prefs
+  const note = (a.note !== undefined && a.note !== null && a.note !== '')
+    ? a.note
+    : (prefs[`note_${a.id}`] || '')
   const hideThis = prefs[`hide_bal_${a.id}`] || hideTotal
 
   return `<div class="account-card acct-draggable"
@@ -177,10 +180,25 @@ function toggleAcctGroup(cat) {
   navigate('accounts')
 }
 
+let _noteSaveTimers = {}
 function saveAcctNote(id, value) {
+  // Optimistic: update local state + localStorage immediately
   const prefs = getPrefs()
   prefs[`note_${id}`] = value
   savePrefs(prefs)
+  const acct = state.accounts.find(a => a.id === id)
+  if (acct) acct.note = value
+
+  // Debounced Supabase sync (so notes appear on other devices)
+  clearTimeout(_noteSaveTimers[id])
+  _noteSaveTimers[id] = setTimeout(async () => {
+    try {
+      await DB.updateAccount(id, { note: value })
+    } catch (e) {
+      // If column doesn't exist yet or offline, localStorage still has it
+      console.warn('Note sync failed (using local copy):', e.message)
+    }
+  }, 600)
 }
 
 // ── Drag & drop cards ─────────────────────────────────────────────────

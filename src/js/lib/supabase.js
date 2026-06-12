@@ -132,6 +132,37 @@ export async function updateAccountBalance(id, delta) {
   await updateAccount(id, { balance: newBalance })
 }
 
+/**
+ * Set an account's balance to an absolute value.
+ * Creates an adjustment transaction (income/expense) for the difference so
+ * the balance history stays consistent.
+ * @returns {Promise<{tx: object|null, diff: number}>}
+ */
+export async function setAccountBalance(id, newBalance, opts = {}) {
+  const acct = state.accounts.find(a => a.id === id)
+  if (!acct) throw new Error('Rekening tidak ditemukan')
+  const oldBalance = Number(acct.balance) || 0
+  const target = Number(newBalance) || 0
+  const diff = target - oldBalance
+
+  // No change → nothing to do
+  if (Math.abs(diff) < 0.5) return { tx: null, diff: 0 }
+
+  // Create an adjustment transaction for the difference
+  const txType = diff >= 0 ? 'income' : 'expense'
+  const payload = {
+    type: txType,
+    amount: Math.abs(diff),
+    category: opts.category || (diff >= 0 ? 'Penyesuaian' : 'Penyesuaian'),
+    note: opts.note || 'Penyesuaian saldo manual',
+    account_id: id,
+    date: opts.date || new Date().toISOString().slice(0, 10),
+  }
+
+  const tx = await createTransaction(payload) // also updates state + balance
+  return { tx, diff }
+}
+
 // ── Transactions ──────────────────────────────────────────────────────
 
 export async function createTransaction(payload) {

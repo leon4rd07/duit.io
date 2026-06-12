@@ -76,8 +76,9 @@ export const leaderLinesPlugin = {
 
         const x1 = cx + Math.cos(midAngle) * outerR
         const y1 = cy + Math.sin(midAngle) * outerR
-        const x2 = cx + Math.cos(midAngle) * (outerR + 14)
-        const y2 = cy + Math.sin(midAngle) * (outerR + 14)
+        // Bend point further out (outerR + 22) so the radial segment clears the donut
+        const x2 = cx + Math.cos(midAngle) * (outerR + 22)
+        const y2 = cy + Math.sin(midAngle) * (outerR + 22)
         const isRight = Math.cos(midAngle) >= 0
 
         // Pre-measure label width for dotX clamping
@@ -121,21 +122,21 @@ export const leaderLinesPlugin = {
         }
       })
 
-      // Pass 3: compute dotX per label (close to bend point — short lines)
+      // Pass 3: compute dotX per label (clear gap from donut edge)
       placements.forEach(p => {
-        const minDotXRight = p.cx + p.outerR + 16
-        const minDotXLeft  = p.cx - p.outerR - 16
+        const minDotXRight = p.cx + p.outerR + 28  // keep label well clear of donut
+        const minDotXLeft  = p.cx - p.outerR - 28
         if (p.isRight) {
           let dotX = p.x2 + lineExtension
           const maxDotX = canvasW - margin - 6 - p.labelW
           dotX = Math.min(dotX, maxDotX)  // never overflow right
-          dotX = Math.max(dotX, minDotXRight) // never inside donut
+          dotX = Math.max(dotX, minDotXRight) // clear gap from donut
           p.dotX = dotX
         } else {
           let dotX = p.x2 - lineExtension
           const minDotXClamp = margin + 6 + p.labelW
           dotX = Math.max(dotX, minDotXClamp)  // never overflow left
-          dotX = Math.min(dotX, minDotXLeft)   // never inside donut (from left)
+          dotX = Math.min(dotX, minDotXLeft)   // clear gap from donut
           p.dotX = dotX
         }
       })
@@ -156,11 +157,22 @@ export const leaderLinesPlugin = {
           drawLabel = drawLabel.slice(0, -2) + '…'
         }
 
-        // Leader line (3 segments)
+        // Recompute anchor on the donut edge at the (possibly shifted) y2,
+        // so the radial segment never angles back across the donut body.
+        const cy = p.cy, outerR = p.outerR
+        let anchorAngle = Math.asin(Math.max(-1, Math.min(1, (y2 - cy) / outerR)))
+        // asin gives -PI/2..PI/2 (right side). Mirror for left side.
+        if (!isRight) anchorAngle = Math.PI - anchorAngle
+        const ax1 = p.cx + Math.cos(anchorAngle) * outerR
+        const ay1 = cy + Math.sin(anchorAngle) * outerR
+        const ax2 = p.cx + Math.cos(anchorAngle) * (outerR + 12) // small radial stub
+        const ay2 = cy + Math.sin(anchorAngle) * (outerR + 12)
+
+        // Leader line: radial stub from donut edge → horizontal to dot
         ctx.strokeStyle = text3
         ctx.beginPath()
-        ctx.moveTo(x1, y1)
-        ctx.lineTo(x2, y2)
+        ctx.moveTo(ax1, ay1)
+        ctx.lineTo(ax2, ay2)
         ctx.lineTo(dotX, y2)
         ctx.stroke()
 

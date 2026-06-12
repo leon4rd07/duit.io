@@ -52,7 +52,7 @@ function renderDashboard(area, actions) {
     <div class="summary-grid mb-16">
       <div class="summary-card">
         <div class="stat-label">${t('dash.total_balance')}</div>
-        <div class="stat-value accent" style="font-size:18px">${isBalHidden('total') ? '••••' : fmtShort(totalBalance)}</div>
+        <div class="stat-value" style="font-size:18px;color:var(--text)">${isBalHidden('total') ? '••••' : fmtShort(totalBalance)}</div>
       </div>
       <div class="summary-card">
         <div class="stat-label">${t('dash.income')}</div>
@@ -99,12 +99,15 @@ function renderDashboard(area, actions) {
         <button class="btn btn-ghost btn-sm" onclick="navigate('accounts')">${t('btn.manage')} →</button>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
-        ${state.accounts.slice(0,4).map(a=>`
-          <div style="background:var(--bg3);border-radius:10px;padding:12px 16px;min-width:130px">
+        ${state.accounts.slice(0,4).map(a=>{
+          const accColor = a.color || 'var(--accent)';
+          return `
+          <div style="background:var(--bg3);border-radius:10px;padding:12px 16px;min-width:130px;border-left:3px solid ${accColor}">
             <div style="font-size:11px;color:var(--text2);margin-bottom:3px">${a.icon || BANK_ICONS[a.bank] || '💳'} ${a.bank}</div>
             <div style="font-size:13px;font-weight:600;margin-bottom:2px">${a.name}</div>
-            <div style="font-size:15px;font-weight:700;color:var(--accent)">${maskIf(isBalHidden(a.id), fmtShort(a.balance))}</div>
-          </div>`).join('') || `<div class="text-muted text-sm">${t('empty.accounts')}</div>`}
+            <div style="font-size:15px;font-weight:700;color:${accColor}">${maskIf(isBalHidden(a.id), fmtShort(a.balance))}</div>
+          </div>`;
+        }).join('') || `<div class="text-muted text-sm">${t('empty.accounts')}</div>`}
       </div>
     </div>`;
 
@@ -149,13 +152,17 @@ function renderDashboard(area, actions) {
       const labels = dailyData.filter(d=>d.inc||d.exp).map(d=>d.day+'');
       const incData = dailyData.filter(d=>d.inc||d.exp).map(d=>d.inc);
       const expData = dailyData.filter(d=>d.inc||d.exp).map(d=>d.exp);
+      // Theme-aware tick + grid colors
+      const _cs = getComputedStyle(document.documentElement);
+      const tickColor = (_cs.getPropertyValue('--text2').trim() || '#5a6075');
+      const gridColor = (_cs.getPropertyValue('--border').trim() || 'rgba(255,255,255,0.06)');
       new Chart(ctx2, {
         type:'bar',
         data:{labels,datasets:[
           {label:'Masuk',data:incData,backgroundColor:'rgba(74,222,128,0.7)',borderRadius:4},
           {label:'Keluar',data:expData,backgroundColor:'rgba(255,95,109,0.7)',borderRadius:4}
         ]},
-        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{color:'#5a6075',font:{size:10}}},y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#5a6075',font:{size:10},callback:v=>fmtShort(v)}}},barPercentage:0.7}
+        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{color:tickColor,font:{size:10}}},y:{grid:{color:gridColor},ticks:{color:tickColor,font:{size:10},callback:v=>fmtShort(v)}}},barPercentage:0.7}
       });
     }
   },50);
