@@ -168,7 +168,7 @@ function renderReports(area, actions) {
     </div>`
 
   setTimeout(() => {
-    const _cs = getComputedStyle(document.documentElement)
+    const _cs = getComputedStyle(document.body)
     const tickColor = (_cs.getPropertyValue('--text2').trim() || '#5a6075')
     const gridColor = (_cs.getPropertyValue('--border').trim() || 'rgba(255,255,255,0.06)')
     const chartDefaults = {
@@ -194,7 +194,7 @@ function renderReports(area, actions) {
     if (catEntries.length) {
       const ctx2 = document.getElementById('cat-donut')?.getContext('2d')
       if (ctx2) {
-        const cs = getComputedStyle(document.documentElement)
+        const cs = getComputedStyle(document.body)
         const bg2 = cs.getPropertyValue('--bg2').trim() || '#1a1a1a'
 
         new Chart(ctx2, {

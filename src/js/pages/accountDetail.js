@@ -1,15 +1,17 @@
 // src/js/pages/accountDetail.js
+import { Chart } from 'chart.js/auto'
 import { state }        from '../lib/store.js'
 import { showToast }    from '../lib/toast.js'
 import { navigate }     from '../lib/router.js'
 import { fmt, fmtShort, fmtDate, monthKey, monthLabel } from '../lib/utils.js'
 import { BANK_ICONS, CURRENCIES } from '../lib/config.js'
 import { getCatObj }    from '../lib/categories.js'
+import { t }            from '../lib/i18n.js'
 
 let _detailAccountId = null
 let _detailMonth = new Date()
 let _detailTab = 'details' // 'details' | 'charts'
-let _chartType = 'trend'   // 'trend' | 'income_expense'
+let _chartType = 'trend'   // 'trend' | 'candle' | 'income_expense'
 
 export function openAccountDetail(id) {
   _detailAccountId = id
@@ -205,8 +207,9 @@ function renderChartsTab(a, monthTx) {
   // (simple approach: walk back from today)
   return `
     <div class="acct-detail-chart-tabs">
-      <button class="acct-detail-chart-tab ${_chartType==='trend'?'active':''}" onclick="detailSetChart('trend')">Trend</button>
-      <button class="acct-detail-chart-tab ${_chartType==='income_expense'?'active':''}" onclick="detailSetChart('income_expense')">Income/Expense</button>
+      <button class="acct-detail-chart-tab ${_chartType==='trend'?'active':''}" onclick="detailSetChart('trend')">📈 ${t('acctd.chart.line')}</button>
+      <button class="acct-detail-chart-tab ${_chartType==='candle'?'active':''}" onclick="detailSetChart('candle')">📊 ${t('acctd.chart.candle')}</button>
+      <button class="acct-detail-chart-tab ${_chartType==='income_expense'?'active':''}" onclick="detailSetChart('income_expense')">💰 ${t('acctd.chart.io')}</button>
     </div>
     <div class="acct-detail-chart-wrap">
       <canvas id="acct-detail-chart"></canvas>
@@ -222,7 +225,7 @@ function renderChartsTab(a, monthTx) {
         </div>
         ${renderDailyRows(a, monthTx)}
       </div>
-    ` : '<div class="empty-state" style="padding:24px 0"><p>Tidak ada data bulan ini</p></div>'}
+    ` : `<div class="empty-state" style="padding:24px 0"><p>${t('acctd.no_data')}</p></div>`}
   `
 }
 
@@ -266,8 +269,6 @@ async function renderDetailChart(a) {
   const ctx = document.getElementById('acct-detail-chart')
   if (!ctx) return
 
-  const { Chart } = await import('chart.js/auto')
-
   // Destroy previous chart on same canvas
   if (window._acctDetailChart) {
     try { window._acctDetailChart.destroy() } catch(e) {}
@@ -276,38 +277,38 @@ async function renderDetailChart(a) {
   const mk = monthKey(_detailMonth)
   const daysInMonth = new Date(_detailMonth.getFullYear(), _detailMonth.getMonth()+1, 0).getDate()
 
-  // For each day, compute end-of-day balance
   const labels = []
-  const trendData = []
   const incomeData = []
   const expenseData = []
 
-  let runningBal = Number(a.balance)
-  // Walk forward through the month
   const monthTx = state.transactions
     .filter(t => t.date?.startsWith(mk) && (t.account_id === a.id || t.to_account_id === a.id))
 
-  // Start from current balance — subtract future txs (if any) to find start-of-month balance
-  // Simpler: just compute net change per day and plot balance backwards
   const today = new Date()
+  const isCurrentMonth = today.getMonth() === _detailMonth.getMonth() && today.getFullYear() === _detailMonth.getFullYear()
+  // Last day to plot: today if current month, else full month
+  const lastDay = isCurrentMonth ? today.getDate() : daysInMonth
+
   for (let day = 1; day <= daysInMonth; day++) {
     const ds = `${mk}-${String(day).padStart(2,'0')}`
     const dayTx = monthTx.filter(t => t.date === ds)
     const dayIncome = dayTx.filter(t => t.type==='income' || (t.type==='transfer' && t.to_account_id===a.id)).reduce((s,t)=>s+Number(t.amount), 0)
     const dayExpense = dayTx.filter(t => t.type==='expense' || (t.type==='transfer' && t.account_id===a.id)).reduce((s,t)=>s+Number(t.amount), 0)
     labels.push(`${_detailMonth.getMonth()+1}/${day}`)
-    incomeData.push(dayIncome)
-    expenseData.push(dayExpense)
+    // Future days (after today in current month) → null so chart stays blank
+    if (day > lastDay) {
+      incomeData.push(null)
+      expenseData.push(null)
+    } else {
+      incomeData.push(dayIncome)
+      expenseData.push(dayExpense)
+    }
   }
 
-  // For trend: compute end-of-day balance going backwards from current
-  // Today's balance = a.balance, then for each previous day, undo that day's net
+  // ── Compute end-of-day balance series (walk backwards from current) ──
   let curBal = Number(a.balance)
-  const balByDay = new Array(daysInMonth).fill(0)
-  const todayDay = today.getMonth() === _detailMonth.getMonth() && today.getFullYear() === _detailMonth.getFullYear()
-    ? today.getDate() : daysInMonth
-
-  for (let day = todayDay; day >= 1; day--) {
+  const balByDay = new Array(daysInMonth).fill(null)
+  for (let day = lastDay; day >= 1; day--) {
     balByDay[day-1] = curBal
     const ds = `${mk}-${String(day).padStart(2,'0')}`
     const dayTx = monthTx.filter(t => t.date === ds)
@@ -318,64 +319,123 @@ async function renderDetailChart(a) {
     }, 0)
     curBal -= net
   }
-  // Fill future days with current balance
-  for (let day = todayDay + 1; day <= daysInMonth; day++) {
-    balByDay[day-1] = balByDay[todayDay-1] || Number(a.balance)
+  // Future days stay null (blank) — NO flat-line fill
+
+  // ── Build OHLC candle data: each day's open/close balance + high/low ──
+  // open = start-of-day balance, close = end-of-day balance
+  const candleData = []
+  let prevClose = null
+  for (let day = 1; day <= daysInMonth; day++) {
+    if (day > lastDay) { candleData.push(null); continue }
+    const close = balByDay[day-1]
+    // open = previous day's close (or close itself for first day)
+    const open = (day === 1 || prevClose === null) ? close : prevClose
+    candleData.push({
+      x: labels[day-1],
+      o: open,
+      h: Math.max(open, close),
+      l: Math.min(open, close),
+      c: close,
+    })
+    prevClose = close
   }
 
-  const accentColor = a.color || '#4ecdc4'
+  // ── Theme-aware colors ──
+  const cs = getComputedStyle(document.body)
+  const tickColor = (cs.getPropertyValue('--text2').trim() || '#94a3b8')
+  const gridColor = (cs.getPropertyValue('--border').trim() || 'rgba(255,255,255,0.05)')
+  const greenC = (cs.getPropertyValue('--green').trim() || '#4ade80')
+  const redC   = (cs.getPropertyValue('--red').trim()   || '#ff5f6d')
+  const accentColor = a.color || (cs.getPropertyValue('--accent').trim() || '#4ecdc4')
 
-  const config = _chartType === 'trend' ? {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [{
-        label: 'Saldo',
-        data: balByDay,
-        borderColor: accentColor,
-        backgroundColor: accentColor + '33',
-        fill: true,
-        tension: 0.3,
-        pointRadius: 2,
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        y: {
-          ticks: { color: '#94a3b8', callback: v => fmtShort(v) },
-          grid: { color: 'rgba(255,255,255,0.05)' }
-        },
-        x: {
-          ticks: { color: '#94a3b8', maxTicksLimit: 8 },
-          grid: { display: false }
+  let config
+  if (_chartType === 'trend') {
+    config = {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Saldo',
+          data: balByDay,
+          borderColor: accentColor,
+          backgroundColor: accentColor + '33',
+          fill: true,
+          tension: 0.3,
+          pointRadius: 2,
+          spanGaps: false, // don't connect across null (future) days
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ' ' + fmtShort(c.raw) } } },
+        scales: {
+          y: { ticks: { color: tickColor, callback: v => fmtShort(v) }, grid: { color: gridColor } },
+          x: { ticks: { color: tickColor, maxTicksLimit: 8 }, grid: { display: false } }
         }
       }
     }
-  } : {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [
-        { label: 'Pemasukan', data: incomeData, backgroundColor: '#4ade80' },
-        { label: 'Pengeluaran', data: expenseData, backgroundColor: '#ff5f6d' }
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { display: true, labels: { color: '#94a3b8' } } },
-      scales: {
-        y: {
-          ticks: { color: '#94a3b8', callback: v => fmtShort(v) },
-          grid: { color: 'rgba(255,255,255,0.05)' }
+  } else if (_chartType === 'candle') {
+    // Candlestick via floating bars (no extra lib): bar from low→high, colored by up/down
+    const candlePoints = candleData.filter(c => c !== null)
+    const candleLabels = candlePoints.map(c => c.x)
+    config = {
+      type: 'bar',
+      data: {
+        labels: candleLabels,
+        datasets: [{
+          label: 'Saldo',
+          // floating bar: [low, high]
+          data: candlePoints.map(c => [c.l, c.h]),
+          backgroundColor: candlePoints.map(c => c.c >= c.o ? greenC : redC),
+          borderColor: candlePoints.map(c => c.c >= c.o ? greenC : redC),
+          borderWidth: 1,
+          borderSkipped: false,
+          barPercentage: 0.6,
+          categoryPercentage: 0.8,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: c => {
+                const cd = candlePoints[c.dataIndex]
+                return [` Buka: ${fmtShort(cd.o)}`, ` Tutup: ${fmtShort(cd.c)}`]
+              }
+            }
+          }
         },
-        x: {
-          ticks: { color: '#94a3b8', maxTicksLimit: 8 },
-          grid: { display: false },
-          stacked: false
+        scales: {
+          y: { ticks: { color: tickColor, callback: v => fmtShort(v) }, grid: { color: gridColor } },
+          x: { ticks: { color: tickColor, maxTicksLimit: 8 }, grid: { display: false } }
+        }
+      }
+    }
+  } else {
+    // income_expense bars
+    const ieLabels = labels.filter((_, i) => incomeData[i] !== null)
+    const ieIncome = incomeData.filter(v => v !== null)
+    const ieExpense = expenseData.filter(v => v !== null)
+    config = {
+      type: 'bar',
+      data: {
+        labels: ieLabels,
+        datasets: [
+          { label: t('tx.income'), data: ieIncome, backgroundColor: greenC },
+          { label: t('tx.expense'), data: ieExpense, backgroundColor: redC }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: true, labels: { color: tickColor } }, tooltip: { callbacks: { label: c => ' ' + fmtShort(c.raw) } } },
+        scales: {
+          y: { ticks: { color: tickColor, callback: v => fmtShort(v) }, grid: { color: gridColor } },
+          x: { ticks: { color: tickColor, maxTicksLimit: 8 }, grid: { display: false }, stacked: false }
         }
       }
     }
@@ -389,13 +449,13 @@ function detailChangeMonth(delta) {
   navigate('accountDetail')
 }
 
-function detailSetTab(t) {
-  _detailTab = t
+function detailSetTab(tab) {
+  _detailTab = tab
   navigate('accountDetail')
 }
 
-function detailSetChart(t) {
-  _chartType = t
+function detailSetChart(type) {
+  _chartType = type
   navigate('accountDetail')
 }
 

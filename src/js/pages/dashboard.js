@@ -153,7 +153,7 @@ function renderDashboard(area, actions) {
       const incData = dailyData.filter(d=>d.inc||d.exp).map(d=>d.inc);
       const expData = dailyData.filter(d=>d.inc||d.exp).map(d=>d.exp);
       // Theme-aware tick + grid colors
-      const _cs = getComputedStyle(document.documentElement);
+      const _cs = getComputedStyle(document.body);
       const tickColor = (_cs.getPropertyValue('--text2').trim() || '#5a6075');
       const gridColor = (_cs.getPropertyValue('--border').trim() || 'rgba(255,255,255,0.06)');
       new Chart(ctx2, {

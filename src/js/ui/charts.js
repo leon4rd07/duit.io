@@ -44,7 +44,8 @@ export const leaderLinesPlugin = {
       const topN       = opts.topN || 5
       const formatter  = opts.format || (v => 'Rp ' + Math.round(Number(v) || 0).toLocaleString('id-ID'))
 
-      const cs    = getComputedStyle(document.documentElement)
+      // Theme vars are defined on body.light / :root — read from body to catch both
+      const cs    = getComputedStyle(document.body)
       const text  = (cs.getPropertyValue('--text').trim()  || '#e1e6f0')
       const text2 = (cs.getPropertyValue('--text2').trim() || '#8b92a8')
       const text3 = (cs.getPropertyValue('--text3').trim() || '#5a6075')

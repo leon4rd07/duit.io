@@ -151,6 +151,12 @@ export const translations = {
     'budget.add_title':   'Tambah Anggaran',
     'budget.edit_title':  'Edit Anggaran',
 
+    // ── Account detail charts ──────────────────────────────
+    'acctd.chart.line':   'Garis',
+    'acctd.chart.candle': 'Candle',
+    'acctd.chart.io':     'Masuk/Keluar',
+    'acctd.no_data':      'Tidak ada data bulan ini',
+
     // ── Category management page ───────────────────────────
     'cat.title':           'Kategori',
     'cat.tab.expense':     '🛒 Pengeluaran',
@@ -434,6 +440,12 @@ export const translations = {
     // ── Budget modal ───────────────────────────────────────
     'budget.add_title':   'Add Budget',
     'budget.edit_title':  'Edit Budget',
+
+    // ── Account detail charts ──────────────────────────────
+    'acctd.chart.line':   'Line',
+    'acctd.chart.candle': 'Candle',
+    'acctd.chart.io':     'Income/Expense',
+    'acctd.no_data':      'No data this month',
 
     // ── Category management page ───────────────────────────
     'cat.title':           'Categories',
