@@ -203,14 +203,11 @@ function renderReports(area, actions) {
         new Chart(ctx2, {
           type: 'doughnut',
           data: {
-            // Clean labels: icon + name + percentage (no double-emoji)
+            // Clean category names; emoji passed separately for badges
             labels: catEntries.map(c => {
               const obj  = getCatObj(c[0])
-              const icon = obj?.icon || '•'
-              // Use obj.name (clean) if found, else strip emoji prefix from c[0]
               const name = obj?.name || c[0].replace(/^\S+\s+/, '').trim() || c[0]
-              const pct  = catTotal ? ((c[1] / catTotal) * 100).toFixed(1) : '0.0'
-              return `${icon} ${name} ${pct}%`
+              return name
             }),
             datasets: [{
               data: catEntries.map(c => c[1]),
@@ -223,15 +220,18 @@ function renderReports(area, actions) {
             responsive: true,
             maintainAspectRatio: false,
             cutout: '65%',
-            layout: { padding: { top: 24, right: 90, bottom: 24, left: 90 } },
+            layout: { padding: 30 }, // room for circular badges
             plugins: {
               legend: { display: false },
               tooltip: {
                 callbacks: {
-                  // ctx.label already contains "icon name pct%" — just append amount
-                  label: ctx => ` ${ctx.label}: ${fmtShort(ctx.raw)}`,
+                  label: ctx => {
+                    const pct = catTotal ? ((ctx.raw / catTotal) * 100).toFixed(1) : '0.0'
+                    return ` ${ctx.label}: ${fmtShort(ctx.raw)} (${pct}%)`
+                  },
                 },
               },
+              leaderLines: { icons: catEntries.map(c => getCatObj(c[0])?.icon || '•') },
             },
           },
           plugins: [leaderLinesPlugin],

@@ -117,17 +117,15 @@ function renderDashboard(area, actions) {
   setTimeout(()=>{
     if(catEntries.length) {
       const ctx1 = document.getElementById('cat-chart')?.getContext('2d');
+      const _chartTotal = catEntries.reduce((s,c)=>s+c[1],0);
       if(ctx1) new Chart(ctx1, {
         type:'doughnut',
         data:{
-          // Clean labels: icon + name + percentage (no double-emoji)
+          // Clean category names (no double-emoji); emoji passed separately for badges
           labels: catEntries.map(c => {
             const obj  = getCatObj(c[0]);
-            const icon = obj?.icon || '•';
-            // Use obj.name (clean) if found, else strip emoji prefix from c[0]
             const name = obj?.name || c[0].replace(/^\S+\s+/, '').trim() || c[0];
-            const pct  = expense ? ((c[1] / expense) * 100).toFixed(1) : '0.0';
-            return `${icon} ${name} ${pct}%`;
+            return name;
           }),
           datasets:[{
             data: catEntries.map(c => c[1]),
@@ -140,10 +138,19 @@ function renderDashboard(area, actions) {
           responsive: true,
           maintainAspectRatio: false,
           cutout: '65%',
-          layout: { padding: { top: 20, right: 90, bottom: 20, left: 90 } },
+          layout: { padding: 30 }, // room for circular badges around the donut
           plugins: {
             legend: { display: false },
-            tooltip: { callbacks: { label: d => ' ' + fmtShort(d.raw) } },
+            tooltip: {
+              callbacks: {
+                label: d => {
+                  const pct = _chartTotal ? ((d.raw / _chartTotal) * 100).toFixed(1) : '0.0';
+                  return ` ${d.label}: ${fmtShort(d.raw)} (${pct}%)`;
+                }
+              }
+            },
+            // Badge plugin reads icons here
+            leaderLines: { icons: catEntries.map(c => getCatObj(c[0])?.icon || '•') },
           }
         },
         plugins: [leaderLinesPlugin]

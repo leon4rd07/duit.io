@@ -12,24 +12,26 @@ const defaultScales = {
 }
 
 /**
- * Leader-lines plugin for doughnut charts.
+ * Category badge plugin for doughnut charts (no leader lines).
  *
- * Each label sits CLOSE to its slice (short leader line, no big empty space).
- *   1. Compute initial position per top-N segment from arc midAngle
- *   2. Resolve Y collisions per side via strict ordering
- *   3. Position dotX just past the bend point — short, clear lines to each slice
- *   4. Draw lines, dots, labels
+ * Renders a circular badge (emoji on a white disc with a colored ring) anchored
+ * just outside each slice's midpoint, and draws the percentage inside the slice
+ * when the slice is large enough. Clean, modern, no crossing lines.
+ *
+ * The `data.labels` should be the raw category names (with optional emoji prefix).
+ * The plugin extracts the leading emoji for the badge and shows "name pct%" only
+ * in the tooltip — the chart face stays uncluttered.
  *
  * Options (chart.options.plugins.leaderLines):
- *   - showAmount: boolean — second line with amount (default: false)
- *   - format: (v) => string — amount formatter
- *   - topN: number — how many top segments to label (default: 5)
+ *   - icons: string[] — emoji per data index (overrides emoji parsed from label)
+ *   - topN: number — badge only the top N slices (default: all)
+ *   - minPctForInside: number — min fraction to draw % inside slice (default 0.05)
  */
 export const leaderLinesPlugin = {
   id: 'leaderLines',
   afterDraw(chart) {
     try {
-      const { ctx, canvas } = chart
+      const { ctx } = chart
       const meta = chart.getDatasetMeta(0)
       if (!meta?.data?.length) return
 
@@ -39,179 +41,79 @@ export const leaderLinesPlugin = {
       const total   = dataArr.reduce((s, v) => s + Number(v || 0), 0)
       if (!total) return
 
-      const opts       = chart.options?.plugins?.leaderLines || {}
-      const showAmount = !!opts.showAmount
-      const topN       = opts.topN || 5
-      const formatter  = opts.format || (v => 'Rp ' + Math.round(Number(v) || 0).toLocaleString('id-ID'))
+      const opts    = chart.options?.plugins?.leaderLines || {}
+      const icons   = opts.icons || null
+      const topN    = opts.topN || dataArr.length
+      const minPctInside = opts.minPctForInside ?? 0.05
 
-      // Theme vars are defined on body.light / :root — read from body to catch both
-      const cs    = getComputedStyle(document.body)
-      const text  = (cs.getPropertyValue('--text').trim()  || '#e1e6f0')
-      const text2 = (cs.getPropertyValue('--text2').trim() || '#8b92a8')
-      const text3 = (cs.getPropertyValue('--text3').trim() || '#5a6075')
+      // Which slices get a badge: top N by value
+      const ranked = dataArr.map((v, i) => ({ i, v: Number(v || 0) }))
+        .sort((a, b) => b.v - a.v).slice(0, topN)
+      const badgeSet = new Set(ranked.map(r => r.i))
 
-      const dpr     = window.devicePixelRatio || 1
-      const canvasW = canvas.width  / dpr
-      const canvasH = canvas.height / dpr
-      const safeY   = 12
-      const labelGap = showAmount ? 32 : 22
-      const margin  = 4
-      const lineExtension = 24 // px past the bend point — keeps lines SHORT
+      const badgeR = 15      // badge circle radius
+      const ringW  = 2.5     // colored ring thickness
 
-      // Pass 1: initial positions
-      const items = meta.data.map((arc, i) => ({
-        i, arc, value: Number(dataArr[i] || 0), label: String(labels[i] || ''),
-        pct: Number(dataArr[i] || 0) / total,
-      }))
-      const topItems  = items.slice().sort((a, b) => b.value - a.value).slice(0, topN)
-      const topIdxSet = new Set(topItems.map(t => t.i))
-      const isSingleDominant = topItems.length === 1 || (topItems[0]?.pct >= 0.97)
-
-      const placements = []
-      items.forEach(({ i, arc, label, value, pct }) => {
-        if (!topIdxSet.has(i)) return
-        const cx = arc.x, cy = arc.y, outerR = arc.outerRadius
-        let midAngle
-        if (isSingleDominant && pct >= 0.97) midAngle = -Math.PI / 4
-        else midAngle = (arc.startAngle + arc.endAngle) / 2
-
-        const x1 = cx + Math.cos(midAngle) * outerR
-        const y1 = cy + Math.sin(midAngle) * outerR
-        // Bend point further out (outerR + 22) so the radial segment clears the donut
-        const x2 = cx + Math.cos(midAngle) * (outerR + 22)
-        const y2 = cy + Math.sin(midAngle) * (outerR + 22)
-        const isRight = Math.cos(midAngle) >= 0
-
-        // Pre-measure label width for dotX clamping
-        ctx.font = '600 11.5px system-ui, -apple-system, sans-serif'
-        const labelW = ctx.measureText(label).width
-        let amountW = 0
-        if (showAmount) {
-          ctx.font = '500 10px system-ui, -apple-system, sans-serif'
-          amountW = ctx.measureText(formatter(value)).width
-        }
-        const myMaxW = Math.max(labelW, amountW)
-
-        placements.push({
-          i, label, value, pct, midAngle,
-          x1, y1, x2, y2, cx, cy, outerR,
-          isRight, side: isRight ? 'right' : 'left', sideMul: isRight ? 1 : -1,
-          color: ds.backgroundColor[i] || text2,
-          labelW: myMaxW,
-        })
-      })
-
-      // Pass 2: resolve Y collisions per side (strict ordering)
-      ;['left', 'right'].forEach(side => {
-        const sideList = placements.filter(p => p.side === side).sort((a, b) => a.y2 - b.y2)
-        const n = sideList.length
-        if (n === 0) return
-        for (let k = 1; k < n; k++) {
-          const minY = sideList[k - 1].y2 + labelGap
-          if (sideList[k].y2 < minY) sideList[k].y2 = minY
-        }
-        const last = sideList[n - 1].y2
-        const maxY = canvasH - safeY
-        if (last > maxY) {
-          const shift = last - maxY
-          sideList.forEach(p => { p.y2 -= shift })
-        }
-        const first = sideList[0].y2
-        if (first < safeY) {
-          const shift = safeY - first
-          sideList.forEach(p => { p.y2 += shift })
-        }
-      })
-
-      // Pass 3: compute dotX per label (clear gap from donut edge)
-      placements.forEach(p => {
-        const minDotXRight = p.cx + p.outerR + 28  // keep label well clear of donut
-        const minDotXLeft  = p.cx - p.outerR - 28
-        if (p.isRight) {
-          let dotX = p.x2 + lineExtension
-          const maxDotX = canvasW - margin - 6 - p.labelW
-          dotX = Math.min(dotX, maxDotX)  // never overflow right
-          dotX = Math.max(dotX, minDotXRight) // clear gap from donut
-          p.dotX = dotX
-        } else {
-          let dotX = p.x2 - lineExtension
-          const minDotXClamp = margin + 6 + p.labelW
-          dotX = Math.max(dotX, minDotXClamp)  // never overflow left
-          dotX = Math.min(dotX, minDotXLeft)   // clear gap from donut
-          p.dotX = dotX
-        }
-      })
-
-      // Pass 4: draw all
       ctx.save()
-      ctx.lineWidth = 1
 
-      placements.forEach(p => {
-        const { x1, y1, x2, y2, isRight, sideMul, label, value, color, dotX, labelW } = p
+      meta.data.forEach((arc, i) => {
+        const value = Number(dataArr[i] || 0)
+        if (value <= 0) return
+        const pct = value / total
+        const color = ds.backgroundColor[i] || '#888'
+        const cx = arc.x, cy = arc.y
+        const midAngle = (arc.startAngle + arc.endAngle) / 2
+        const midR = (arc.innerRadius + arc.outerRadius) / 2
 
-        // Re-clamp dotX one more time using ACTUAL truncated label
-        // (in case label needs to be shorter for tight canvas)
-        let drawLabel = label
-        ctx.font = '600 11.5px system-ui, -apple-system, sans-serif'
-        const availW = isRight ? (canvasW - dotX - 6 - margin) : (dotX - 6 - margin)
-        while (ctx.measureText(drawLabel).width > availW && drawLabel.length > 3) {
-          drawLabel = drawLabel.slice(0, -2) + '…'
+        // ── Percentage text inside the slice (only if slice is big enough) ──
+        if (pct >= minPctInside) {
+          const px = cx + Math.cos(midAngle) * midR
+          const py = cy + Math.sin(midAngle) * midR
+          ctx.font = '700 11px system-ui, -apple-system, sans-serif'
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          // White text reads well on saturated slice colors
+          ctx.fillStyle = '#ffffff'
+          ctx.fillText(Math.round(pct * 100) + '%', px, py)
         }
 
-        // Leader line — clean 2-segment elbow:
-        //  1. Small dot ON the slice edge (so you see exactly which slice)
-        //  2. Short radial stub out to a "knee"
-        //  3. Straight horizontal line from knee to the label dot
-        const angleCos = Math.cos(p.midAngle)
-        const angleSin = Math.sin(p.midAngle)
-        // Point right on the slice's outer edge
-        const edgeX = p.cx + angleCos * p.outerR
-        const edgeY = p.cy + angleSin * p.outerR
-        // Knee: just outside the donut along the slice angle
-        const kneeX = p.cx + angleCos * (p.outerR + 14)
-        const kneeY = p.cy + angleSin * (p.outerR + 14)
+        // ── Circular emoji badge just outside the slice edge ──
+        if (!badgeSet.has(i)) return
+        // Skip badge for ultra-thin slices to avoid clutter (< 1.5%)
+        if (pct < 0.015) return
 
-        ctx.strokeStyle = text3
-        ctx.lineWidth = 1.25
+        const bx = cx + Math.cos(midAngle) * (arc.outerRadius + badgeR + 3)
+        const by = cy + Math.sin(midAngle) * (arc.outerRadius + badgeR + 3)
+
+        // White disc
         ctx.beginPath()
-        ctx.moveTo(edgeX, edgeY)   // start on the slice edge
-        ctx.lineTo(kneeX, kneeY)   // radial stub to knee
-        ctx.lineTo(dotX, y2)       // straight line to the label dot
+        ctx.arc(bx, by, badgeR, 0, Math.PI * 2)
+        ctx.fillStyle = '#ffffff'
+        ctx.fill()
+        // Colored ring
+        ctx.lineWidth = ringW
+        ctx.strokeStyle = color
         ctx.stroke()
 
-        // Small dot ON the slice edge (origin marker — colored like the slice)
-        ctx.fillStyle = color
-        ctx.beginPath()
-        ctx.arc(edgeX, edgeY, 2.5, 0, Math.PI * 2)
-        ctx.fill()
-
-        // Colored dot at label position
-        ctx.fillStyle = color
-        ctx.beginPath()
-        ctx.arc(dotX, y2, 3.5, 0, Math.PI * 2)
-        ctx.fill()
-
-        const labelX = dotX + sideMul * 6
-        ctx.textAlign = isRight ? 'left' : 'right'
-        ctx.textBaseline = 'middle'
-
-        if (showAmount) {
-          ctx.fillStyle = text
-          ctx.font = '600 11.5px system-ui, -apple-system, sans-serif'
-          ctx.fillText(drawLabel, labelX, y2 - 7)
-          ctx.fillStyle = text2
-          ctx.font = '500 10px system-ui, -apple-system, sans-serif'
-          ctx.fillText(formatter(value), labelX, y2 + 7)
+        // Emoji (parse from icons option or from the label prefix)
+        let emoji = ''
+        if (icons && icons[i]) {
+          emoji = icons[i]
         } else {
-          ctx.fillStyle = text
-          ctx.font = '600 11.5px system-ui, -apple-system, sans-serif'
-          ctx.fillText(drawLabel, labelX, y2)
+          const lbl = String(labels[i] || '')
+          const mm = lbl.match(/^(\p{Extended_Pictographic}(?:\u200d\p{Extended_Pictographic})*)/u)
+          emoji = mm ? mm[1] : (lbl.trim()[0] || '•')
         }
+        ctx.font = '15px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        // Slight vertical nudge so emoji sits visually centered in the disc
+        ctx.fillText(emoji, bx, by + 0.5)
       })
 
       ctx.restore()
     } catch (err) {
-      console.warn('leaderLinesPlugin error:', err)
+      console.warn('category badge plugin error:', err)
     }
   },
 }
