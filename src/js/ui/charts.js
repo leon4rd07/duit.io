@@ -158,26 +158,23 @@ export const leaderLinesPlugin = {
           drawLabel = drawLabel.slice(0, -2) + '…'
         }
 
-        // Recompute anchor on the donut edge at the (possibly shifted) y2,
-        // so the radial segment never angles back across the donut body.
-        const cy = p.cy, outerR = p.outerR
-        let anchorAngle = Math.asin(Math.max(-1, Math.min(1, (y2 - cy) / outerR)))
-        // asin gives -PI/2..PI/2 (right side). Mirror for left side.
-        if (!isRight) anchorAngle = Math.PI - anchorAngle
-        const ax1 = p.cx + Math.cos(anchorAngle) * outerR
-        const ay1 = cy + Math.sin(anchorAngle) * outerR
-        const ax2 = p.cx + Math.cos(anchorAngle) * (outerR + 12) // small radial stub
-        const ay2 = cy + Math.sin(anchorAngle) * (outerR + 12)
+        // Leader line: from slice midpoint → radial bend → horizontal to dot.
+        // Bend point uses the SHIFTED y (after collision avoidance) so the line
+        // forms a clean elbow that still clearly originates from its slice.
+        const angleCos = Math.cos(p.midAngle)
+        const angleSin = Math.sin(p.midAngle)
+        // Radial bend point along the slice's own angle (clears the donut)
+        const bx = p.cx + angleCos * (p.outerR + 16)
+        const by = p.cy + angleSin * (p.outerR + 16)
 
-        // Leader line: radial stub from donut edge → horizontal to dot
         ctx.strokeStyle = text3
         ctx.beginPath()
-        ctx.moveTo(ax1, ay1)
-        ctx.lineTo(ax2, ay2)
-        ctx.lineTo(dotX, y2)
+        ctx.moveTo(p.x1, p.y1)   // exact slice edge at midAngle
+        ctx.lineTo(bx, by)       // short radial stub pointing away from slice center
+        ctx.lineTo(dotX, y2)     // diagonal/horizontal to the label dot
         ctx.stroke()
 
-        // Colored dot
+        // Colored dot at label position
         ctx.fillStyle = color
         ctx.beginPath()
         ctx.arc(dotX, y2, 3.5, 0, Math.PI * 2)
