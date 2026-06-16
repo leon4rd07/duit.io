@@ -43,7 +43,9 @@ function renderDashboard(area, actions) {
 
   // Category breakdown for donut
   const catExp = {};
-  monthTx.filter(t=>t.type==='expense').forEach(t=>{ catExp[t.category]=(catExp[t.category]||0)+Number(t.amount); });
+  // Exclude balance-adjustment transactions from the category breakdown
+  const ADJUST_CATS = ['Penyesuaian', 'Penyesuaian Saldo', 'Adjustment'];
+  monthTx.filter(t=>t.type==='expense' && !ADJUST_CATS.includes(t.category)).forEach(t=>{ catExp[t.category]=(catExp[t.category]||0)+Number(t.amount); });
   const catEntries = Object.entries(catExp).sort((a,b)=>b[1]-a[1]).slice(0,6);
 
   const recent = state.transactions.slice(0,8);
@@ -72,7 +74,7 @@ function renderDashboard(area, actions) {
             <canvas id="cat-chart"></canvas>
             <div class="donut-center">
               <div class="donut-center-label">${t('dash.total_out')}</div>
-              <div class="donut-center-value">${fmtShort(expense)}</div>
+              <div class="donut-center-value">${fmtShort(catEntries.reduce((s,c)=>s+c[1],0))}</div>
             </div>
           </div>
         ` : `<div class="empty-state" style="padding:20px"><div class="empty-icon">📂</div><p>${t('dash.empty_data')}</p></div>`}

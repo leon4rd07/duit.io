@@ -158,21 +158,32 @@ export const leaderLinesPlugin = {
           drawLabel = drawLabel.slice(0, -2) + '…'
         }
 
-        // Leader line: from slice midpoint → radial bend → horizontal to dot.
-        // Bend point uses the SHIFTED y (after collision avoidance) so the line
-        // forms a clean elbow that still clearly originates from its slice.
+        // Leader line — clean 2-segment elbow:
+        //  1. Small dot ON the slice edge (so you see exactly which slice)
+        //  2. Short radial stub out to a "knee"
+        //  3. Straight horizontal line from knee to the label dot
         const angleCos = Math.cos(p.midAngle)
         const angleSin = Math.sin(p.midAngle)
-        // Radial bend point along the slice's own angle (clears the donut)
-        const bx = p.cx + angleCos * (p.outerR + 16)
-        const by = p.cy + angleSin * (p.outerR + 16)
+        // Point right on the slice's outer edge
+        const edgeX = p.cx + angleCos * p.outerR
+        const edgeY = p.cy + angleSin * p.outerR
+        // Knee: just outside the donut along the slice angle
+        const kneeX = p.cx + angleCos * (p.outerR + 14)
+        const kneeY = p.cy + angleSin * (p.outerR + 14)
 
         ctx.strokeStyle = text3
+        ctx.lineWidth = 1.25
         ctx.beginPath()
-        ctx.moveTo(p.x1, p.y1)   // exact slice edge at midAngle
-        ctx.lineTo(bx, by)       // short radial stub pointing away from slice center
-        ctx.lineTo(dotX, y2)     // diagonal/horizontal to the label dot
+        ctx.moveTo(edgeX, edgeY)   // start on the slice edge
+        ctx.lineTo(kneeX, kneeY)   // radial stub to knee
+        ctx.lineTo(dotX, y2)       // straight line to the label dot
         ctx.stroke()
+
+        // Small dot ON the slice edge (origin marker — colored like the slice)
+        ctx.fillStyle = color
+        ctx.beginPath()
+        ctx.arc(edgeX, edgeY, 2.5, 0, Math.PI * 2)
+        ctx.fill()
 
         // Colored dot at label position
         ctx.fillStyle = color

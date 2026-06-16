@@ -63,8 +63,11 @@ function renderReports(area, actions) {
   const monthIncome  = monthTx.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0)
 
   // Category breakdown for selected type
+  // Exclude balance-adjustment transactions — they're technical corrections,
+  // not real spending/income, and would dominate the chart.
+  const ADJUST_CATS = ['Penyesuaian', 'Penyesuaian Saldo', 'Adjustment']
   const catMap = {}
-  monthTx.filter(t => t.type === _selectedType).forEach(t => {
+  monthTx.filter(t => t.type === _selectedType && !ADJUST_CATS.includes(t.category)).forEach(t => {
     catMap[t.category] = (catMap[t.category] || 0) + Number(t.amount)
   })
   const catEntries = Object.entries(catMap).sort((a, b) => b[1] - a[1])
