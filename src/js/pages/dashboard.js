@@ -8,7 +8,7 @@ import { fmt, fmtShort, fmtDate, monthKey, monthLabel } from '../lib/utils.js'
 import { getCatObj, CAT_COLORS } from '../lib/categories.js'
 import { AVATAR_COLORS, BANK_ICONS} from '../lib/config.js'
 import { t } from '../lib/i18n.js'
-import { leaderLinesPlugin } from '../ui/charts.js'
+import { leaderLinesPlugin, buildDonutDisplay } from '../ui/charts.js'
 
 function isBalHidden(id) { try { if (localStorage.getItem('hide_total_balance')==='1') return true; const p = JSON.parse(localStorage.getItem('acct_prefs_v1')||'{}'); return p[`hide_bal_${id}`]===true } catch { return false } }
 function maskIf(hidden, str) { return hidden ? '••••••' : str }
@@ -117,18 +117,19 @@ function renderDashboard(area, actions) {
   setTimeout(()=>{
     if(catEntries.length) {
       const ctx1 = document.getElementById('cat-chart')?.getContext('2d');
-      const _chartTotal = catEntries.reduce((s,c)=>s+c[1],0);
+      const _rawVals = catEntries.map(c => c[1]);
+      const { displayValues } = buildDonutDisplay(_rawVals, 0.05); // min 5% visual size
       if(ctx1) new Chart(ctx1, {
         type:'doughnut',
         data:{
-          // Clean category names (no double-emoji); emoji passed separately for badges
+          // Clean category names; emoji passed separately for badges
           labels: catEntries.map(c => {
             const obj  = getCatObj(c[0]);
             const name = obj?.name || c[0].replace(/^\S+\s+/, '').trim() || c[0];
             return name;
           }),
           datasets:[{
-            data: catEntries.map(c => c[1]),
+            data: displayValues, // floored so tiny slices stay visible
             backgroundColor: catEntries.map(c => (getCatObj(c[0])?.color) || CAT_COLORS[c[0]] || '#636e72'),
             borderWidth: 0,
             hoverOffset: 4,
@@ -138,19 +139,24 @@ function renderDashboard(area, actions) {
           responsive: true,
           maintainAspectRatio: false,
           cutout: '65%',
-          layout: { padding: 30 }, // room for circular badges around the donut
+          layout: { padding: 34 }, // room for circular badges around the donut
           plugins: {
             legend: { display: false },
             tooltip: {
               callbacks: {
+                // Tooltip shows TRUE values, not the floored display values
                 label: d => {
-                  const pct = _chartTotal ? ((d.raw / _chartTotal) * 100).toFixed(1) : '0.0';
-                  return ` ${d.label}: ${fmtShort(d.raw)} (${pct}%)`;
+                  const raw = _rawVals[d.dataIndex];
+                  const tot = _rawVals.reduce((s,v)=>s+v,0);
+                  const pct = tot ? ((raw / tot) * 100).toFixed(1) : '0.0';
+                  return ` ${d.label}: ${fmtShort(raw)} (${pct}%)`;
                 }
               }
             },
-            // Badge plugin reads icons here
-            leaderLines: { icons: catEntries.map(c => getCatObj(c[0])?.icon || '•') },
+            leaderLines: {
+              icons: catEntries.map(c => getCatObj(c[0])?.icon || '•'),
+              rawValues: _rawVals, // for true percentages on the chart face
+            },
           }
         },
         plugins: [leaderLinesPlugin]

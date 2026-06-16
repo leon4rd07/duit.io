@@ -7,7 +7,7 @@ import { fmt, fmtShort, fmtDate, monthKey, monthLabel } from '../lib/utils.js'
 import { getCatObj, CATEGORIES, getCatGroups, CAT_COLORS } from '../lib/categories.js'
 import { AVATAR_COLORS } from '../lib/config.js'
 import * as DB from '../lib/supabase.js'
-import { leaderLinesPlugin } from '../ui/charts.js'
+import { leaderLinesPlugin, buildDonutDisplay } from '../ui/charts.js'
 
 
 // In-page state
@@ -200,6 +200,8 @@ function renderReports(area, actions) {
         const cs = getComputedStyle(document.body)
         const bg2 = cs.getPropertyValue('--bg2').trim() || '#1a1a1a'
 
+        const _rawVals = catEntries.map(c => c[1])
+        const { displayValues } = buildDonutDisplay(_rawVals, 0.05)
         new Chart(ctx2, {
           type: 'doughnut',
           data: {
@@ -210,7 +212,7 @@ function renderReports(area, actions) {
               return name
             }),
             datasets: [{
-              data: catEntries.map(c => c[1]),
+              data: displayValues, // floored so tiny slices stay visible
               backgroundColor: catEntries.map(c => (getCatObj(c[0])?.color) || CAT_COLORS[c[0]] || '#636e72'),
               borderWidth: 0,
               hoverOffset: 4,
@@ -220,18 +222,23 @@ function renderReports(area, actions) {
             responsive: true,
             maintainAspectRatio: false,
             cutout: '65%',
-            layout: { padding: 30 }, // room for circular badges
+            layout: { padding: 34 }, // room for circular badges
             plugins: {
               legend: { display: false },
               tooltip: {
                 callbacks: {
                   label: ctx => {
-                    const pct = catTotal ? ((ctx.raw / catTotal) * 100).toFixed(1) : '0.0'
-                    return ` ${ctx.label}: ${fmtShort(ctx.raw)} (${pct}%)`
+                    const raw = _rawVals[ctx.dataIndex]
+                    const tot = _rawVals.reduce((s,v)=>s+v,0)
+                    const pct = tot ? ((raw / tot) * 100).toFixed(1) : '0.0'
+                    return ` ${ctx.label}: ${fmtShort(raw)} (${pct}%)`
                   },
                 },
               },
-              leaderLines: { icons: catEntries.map(c => getCatObj(c[0])?.icon || '•') },
+              leaderLines: {
+                icons: catEntries.map(c => getCatObj(c[0])?.icon || '•'),
+                rawValues: _rawVals,
+              },
             },
           },
           plugins: [leaderLinesPlugin],

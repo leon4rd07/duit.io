@@ -1,5 +1,5 @@
 // src/js/ui/charts.js
-// Chart.js wrappers with consistent styling + ShopeePay-style donut with leader lines
+// Chart.js wrappers with consistent styling + circular badge donut
 import { Chart } from 'chart.js/auto'
 
 const GRID_COLOR  = 'rgba(255,255,255,0.04)'
@@ -9,6 +9,54 @@ const LABEL_COLOR = '#8b92a8'
 const defaultScales = {
   x: { grid: { display: false }, ticks: { color: TICK_COLOR, font: { size: 11 } } },
   y: { grid: { color: GRID_COLOR }, ticks: { color: TICK_COLOR, font: { size: 11 } } },
+}
+
+/**
+ * Build display values for a doughnut so that tiny slices stay visible.
+ *
+ * Each slice is guaranteed at least `minPct` of the circle for *drawing*,
+ * while the real values are kept for percentage labels/tooltips. This stops
+ * 0.4% slices from rendering as an unreadable sliver.
+ *
+ * @param {number[]} rawValues  actual amounts
+ * @param {number}   minPct     minimum visual fraction per slice (default 0.04 = 4%)
+ * @returns {{ displayValues: number[], rawValues: number[], rawTotal: number }}
+ */
+export function buildDonutDisplay(rawValues, minPct = 0.04) {
+  const rawTotal = rawValues.reduce((s, v) => s + Number(v || 0), 0)
+  if (!rawTotal) return { displayValues: rawValues.slice(), rawValues, rawTotal: 0 }
+
+  const n = rawValues.length
+  // Cap total minimum so big slices don't get squashed to nothing
+  const maxMinShare = 0.6 / Math.max(1, n) // each min slice ≤ this share of circle
+  const effMin = Math.min(minPct, maxMinShare)
+
+  // Slices below the floor get bumped up; the rest are scaled down proportionally
+  const floorVal = effMin * rawTotal
+  const smallIdx = []
+  let smallSum = 0, bigSum = 0
+  rawValues.forEach((v, i) => {
+    const val = Number(v || 0)
+    if (val > 0 && val < floorVal) { smallIdx.push(i); smallSum += val }
+    else bigSum += val
+  })
+
+  if (!smallIdx.length) return { displayValues: rawValues.slice(), rawValues, rawTotal }
+
+  // Space reserved for bumped-up small slices
+  const reserved = smallIdx.length * floorVal
+  // Remaining space for big slices (scaled down to fit)
+  const remaining = Math.max(0, rawTotal - reserved)
+  const bigScale = bigSum > 0 ? remaining / bigSum : 1
+
+  const displayValues = rawValues.map((v, i) => {
+    const val = Number(v || 0)
+    if (val <= 0) return 0
+    if (smallIdx.includes(i)) return floorVal
+    return val * bigScale
+  })
+
+  return { displayValues, rawValues, rawTotal }
 }
 
 /**
@@ -36,37 +84,41 @@ export const leaderLinesPlugin = {
       if (!meta?.data?.length) return
 
       const ds      = chart.data.datasets[0]
-      const dataArr = ds.data
+      const dataArr = ds.data  // display values (with min-size floor)
       const labels  = chart.data.labels
-      const total   = dataArr.reduce((s, v) => s + Number(v || 0), 0)
-      if (!total) return
+      const dispTotal = dataArr.reduce((s, v) => s + Number(v || 0), 0)
+      if (!dispTotal) return
 
       const opts    = chart.options?.plugins?.leaderLines || {}
       const icons   = opts.icons || null
+      // Real values for percentage display (falls back to display values)
+      const rawArr  = opts.rawValues || dataArr
+      const rawTotal = rawArr.reduce((s, v) => s + Number(v || 0), 0) || dispTotal
       const topN    = opts.topN || dataArr.length
       const minPctInside = opts.minPctForInside ?? 0.05
 
-      // Which slices get a badge: top N by value
-      const ranked = dataArr.map((v, i) => ({ i, v: Number(v || 0) }))
+      // Which slices get a badge: top N by raw value
+      const ranked = rawArr.map((v, i) => ({ i, v: Number(v || 0) }))
         .sort((a, b) => b.v - a.v).slice(0, topN)
       const badgeSet = new Set(ranked.map(r => r.i))
 
-      const badgeR = 15      // badge circle radius
+      const badgeR = 14      // badge circle radius
       const ringW  = 2.5     // colored ring thickness
 
       ctx.save()
 
       meta.data.forEach((arc, i) => {
-        const value = Number(dataArr[i] || 0)
-        if (value <= 0) return
-        const pct = value / total
+        const rawValue = Number(rawArr[i] || 0)
+        if (rawValue <= 0) return
+        const pct = rawValue / rawTotal             // true percentage
+        const dispPct = Number(dataArr[i] || 0) / dispTotal // visual size
         const color = ds.backgroundColor[i] || '#888'
         const cx = arc.x, cy = arc.y
         const midAngle = (arc.startAngle + arc.endAngle) / 2
         const midR = (arc.innerRadius + arc.outerRadius) / 2
 
-        // ── Percentage text inside the slice (only if slice is big enough) ──
-        if (pct >= minPctInside) {
+        // ── Percentage text inside the slice (only if slice is visually big) ──
+        if (dispPct >= minPctInside) {
           const px = cx + Math.cos(midAngle) * midR
           const py = cy + Math.sin(midAngle) * midR
           ctx.font = '700 11px system-ui, -apple-system, sans-serif'
@@ -78,12 +130,12 @@ export const leaderLinesPlugin = {
         }
 
         // ── Circular emoji badge just outside the slice edge ──
+        // Every top-N slice gets a badge — min-size flooring guarantees even
+        // tiny (0.4%) slices are visible enough to anchor one.
         if (!badgeSet.has(i)) return
-        // Skip badge for ultra-thin slices to avoid clutter (< 1.5%)
-        if (pct < 0.015) return
 
-        const bx = cx + Math.cos(midAngle) * (arc.outerRadius + badgeR + 3)
-        const by = cy + Math.sin(midAngle) * (arc.outerRadius + badgeR + 3)
+        const bx = cx + Math.cos(midAngle) * (arc.outerRadius + badgeR + 4)
+        const by = cy + Math.sin(midAngle) * (arc.outerRadius + badgeR + 4)
 
         // White disc
         ctx.beginPath()
