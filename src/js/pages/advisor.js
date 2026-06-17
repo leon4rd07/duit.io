@@ -32,16 +32,21 @@ function buildFinancialContext() {
   const lastIncome  = income(pmk);
   const lastExpense = expense(pmk);
 
-  // Category breakdown this month
+  // Category breakdown this month — separate real spending from balance adjustments
+  const ADJUST_CATS = ['Penyesuaian', 'Penyesuaian Saldo', 'Adjustment'];
   const catBreakdown = {};
+  let adjustExpenseTotal = 0;
   thisMonthTx.filter(t=>t.type==='expense').forEach(t=>{
     const c = t.category||'Lainnya';
+    if (ADJUST_CATS.includes(c)) { adjustExpenseTotal += Number(t.amount); return; }
     catBreakdown[c] = (catBreakdown[c]||0) + Number(t.amount);
   });
   const topCats = Object.entries(catBreakdown)
     .sort((a,b)=>b[1]-a[1])
     .map(([c,v])=>`${c}: Rp ${Math.round(v).toLocaleString('id-ID')}`)
     .join(', ');
+  // Real spending excludes adjustments (the meaningful number for advice)
+  const realExpense = thisExpense - adjustExpenseTotal;
 
   // Budget status
   const budgetStatus = state.budgets
@@ -123,9 +128,10 @@ DATA KEUANGAN REAL-TIME (${now.toLocaleDateString('id-ID',{month:'long',year:'nu
 - Total saldo semua rekening: Rp ${Math.round(totalBalance).toLocaleString('id-ID')}
 - Rekening: ${state.accounts.map(a=>`${a.name} (${a.bank}): Rp ${Math.round(a.balance).toLocaleString('id-ID')}`).join(', ') || 'Belum ada'}
 - Pemasukan bulan ini: Rp ${Math.round(thisIncome).toLocaleString('id-ID')} (bulan lalu: Rp ${Math.round(lastIncome).toLocaleString('id-ID')})
-- Pengeluaran bulan ini: Rp ${Math.round(thisExpense).toLocaleString('id-ID')} (bulan lalu: Rp ${Math.round(lastExpense).toLocaleString('id-ID')})
-- Net bulan ini: Rp ${Math.round(thisIncome-thisExpense).toLocaleString('id-ID')}
-- Pengeluaran per kategori bulan ini: ${topCats || 'Belum ada transaksi'}
+- Pengeluaran RIIL bulan ini (di luar penyesuaian saldo): Rp ${Math.round(realExpense).toLocaleString('id-ID')} (bulan lalu: Rp ${Math.round(lastExpense).toLocaleString('id-ID')})
+${adjustExpenseTotal > 0 ? `- Penyesuaian saldo manual bulan ini: Rp ${Math.round(adjustExpenseTotal).toLocaleString('id-ID')} (INI BUKAN PENGELUARAN RIIL — hanya koreksi saldo. JANGAN masukkan ke analisis pengeluaran atau saran penghematan)` : ''}
+- Net riil bulan ini (pemasukan − pengeluaran riil): Rp ${Math.round(thisIncome-realExpense).toLocaleString('id-ID')}
+- Pengeluaran per kategori bulan ini (sudah TIDAK termasuk penyesuaian): ${topCats || 'Belum ada transaksi'}
 - Status anggaran: ${budgetStatus || 'Belum ada anggaran'}
 - Hutang saya: Rp ${Math.round(totalOwe).toLocaleString('id-ID')}
 - Piutang (orang lain hutang ke saya): Rp ${Math.round(totalLent).toLocaleString('id-ID')}
@@ -145,13 +151,18 @@ KATEGORI PENGELUARAN TERSEDIA: ${flatExpenseCats}
 KATEGORI PEMASUKAN TERSEDIA: ${flatIncomeCats}
 
 INSTRUKSI UMUM:
-- Jawab dalam Bahasa Indonesia yang santai tapi profesional
-- Gunakan data di atas untuk menjawab pertanyaan keuangan spesifik
-- Berikan saran konkret, bukan generik
-- Format angka dalam Rupiah Indonesia (Rp X.XXX.XXX)
-- Boleh pakai bullet points untuk daftar, tapi jaga agar jawaban tidak terlalu panjang
-- Jika ditanya sesuatu di luar data yang tersedia, katakan dengan jujur
-- Fokus pada insight yang actionable dan relevan dengan situasi pengguna
+- Kamu adalah penasihat keuangan yang benar-benar peduli pada kesehatan finansial ${userName}. Tujuanmu: membantu mereka membuat keputusan keuangan yang lebih baik, bukan sekadar membacakan ulang angka.
+- Jawab dalam Bahasa Indonesia yang hangat, santai, tapi tetap kredibel — seperti teman yang paham keuangan.
+- SELALU mulai dengan menjawab pertanyaan yang ditanyakan secara langsung dan spesifik, baru beri konteks pendukung.
+- Berikan insight yang TIDAK terlihat dari sekadar melihat angka: pola pengeluaran, tren naik/turun, rasio tabungan, area yang berisiko, peluang yang terlewat.
+- Saran harus KONKRET dan bisa langsung dilakukan. Contoh buruk: "kurangi pengeluaran". Contoh baik: "pengeluaran Food kamu Rp 649rb bulan ini, naik dari biasanya — coba batasi jajan di luar ke 3x seminggu, bisa hemat ~Rp 200rb."
+- Pakai angka REAL dari data untuk mendukung setiap poin. Hitung sendiri rasio/persentase bila membantu (mis. rasio tabungan = (pemasukan−pengeluaran)/pemasukan).
+- "Penyesuaian Saldo" adalah koreksi teknis saldo, BUKAN pengeluaran. JANGAN pernah menyebutnya sebagai pengeluaran terbesar atau menyuruh pengguna menguranginya.
+- Jangan menakut-nakuti. Jika kondisi kurang baik, sampaikan dengan empati dan langsung kasih jalan keluar yang realistis.
+- Jaga jawaban tetap fokus dan tidak bertele-tele. Gunakan struktur yang mudah dibaca (poin singkat), tapi pastikan setiap analisis SELESAI — jangan berhenti di tengah.
+- Format angka dalam Rupiah Indonesia (Rp X.XXX.XXX).
+- Jika ditanya sesuatu di luar data yang tersedia, katakan dengan jujur dan tawarkan apa yang bisa kamu bantu.
+- Akhiri dengan 1 langkah prioritas yang paling penting untuk dilakukan ${userName} sekarang.
 
 ${ACTION_DEFINITIONS}`;
 }

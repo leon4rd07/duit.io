@@ -77,7 +77,7 @@ export default async function handler(req, res) {
   // Financial advisor needs room to give a full analysis; scan tasks stay terse.
   const isAdvisor = task === 'financial_advisor';
   const genConfig = isAdvisor
-    ? { temperature: 0.6, maxOutputTokens: 2048 }
+    ? { temperature: 0.6, maxOutputTokens: 4096 }
     : { temperature: 0.1, maxOutputTokens: 1200 };
   for (const model of MODELS) {
     try {
