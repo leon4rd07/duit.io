@@ -54,7 +54,7 @@ function renderDashboard(area, actions) {
     <div class="summary-grid mb-16">
       <div class="summary-card">
         <div class="stat-label">${t('dash.total_balance')}</div>
-        <div class="stat-value" style="font-size:18px;color:var(--amber)">${isBalHidden('total') ? '••••' : fmtShort(totalBalance)}</div>
+        <div class="stat-value" style="font-size:18px;color:var(--accent)">${isBalHidden('total') ? '••••' : fmtShort(totalBalance)}</div>
       </div>
       <div class="summary-card">
         <div class="stat-label">${t('dash.income')}</div>
