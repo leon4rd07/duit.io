@@ -4,7 +4,7 @@ import { state, getAccount } from '../lib/store.js'
 import * as DB from '../lib/supabase.js'
 import { showToast } from '../lib/toast.js'
 import { navigate } from '../lib/router.js'
-import { fmt, fmtShort, fmtDate, monthKey, monthLabel } from '../lib/utils.js'
+import { fmt, fmtShort, fmtDate, fmtTime, monthKey, monthLabel } from '../lib/utils.js'
 import { getCatObj, CAT_COLORS } from '../lib/categories.js'
 import { AVATAR_COLORS, BANK_ICONS} from '../lib/config.js'
 import { t } from '../lib/i18n.js'
@@ -54,7 +54,7 @@ function renderDashboard(area, actions) {
     <div class="summary-grid mb-16">
       <div class="summary-card">
         <div class="stat-label">${t('dash.total_balance')}</div>
-        <div class="stat-value" style="font-size:18px;color:var(--text)">${isBalHidden('total') ? '••••' : fmtShort(totalBalance)}</div>
+        <div class="stat-value" style="font-size:18px;color:var(--blue)">${isBalHidden('total') ? '••••' : fmtShort(totalBalance)}</div>
       </div>
       <div class="summary-card">
         <div class="stat-label">${t('dash.income')}</div>
@@ -195,12 +195,14 @@ function txItemHtml(tx, showDelete = false) {
   const iconBg = tx.type==='income'?'var(--green-dim)':tx.type==='transfer'?'rgba(96,165,250,0.12)':'var(--red-dim)';
   const amtClass = tx.type==='income'?'income':tx.type==='transfer'?'transfer':'expense';
   const sign = tx.type==='income'?'+':tx.type==='transfer'?'':'−';
+  const timeStr = fmtTime(tx.created_at);
+  const dateTime = timeStr ? `${fmtDate(tx.date)} · ${timeStr}` : fmtDate(tx.date);
   return `<div class="tx-item" style="position:relative">
     <div style="display:flex;align-items:center;gap:12px;flex:1" onclick="openEditTx('${tx.id}')">
       <div class="tx-icon" style="background:${iconBg}">${icon}</div>
       <div class="tx-info">
         <div class="tx-name">${tx.note||tx.category||t('tx.fallback')}</div>
-        <div class="tx-sub">${tx.category||t('tx.transfer')} · ${acc?acc.name:''} · ${fmtDate(tx.date)}</div>
+        <div class="tx-sub">${tx.category||t('tx.transfer')} · ${acc?acc.name:''} · ${dateTime}</div>
       </div>
       <div class="tx-amount ${amtClass}">${sign}${isBalHidden('total') ? '•••••' : fmtShort(tx.amount)}</div>
     </div>

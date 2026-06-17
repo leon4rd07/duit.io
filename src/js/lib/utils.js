@@ -52,6 +52,25 @@ export const fmtDate = (d) => {
   return dt.toLocaleDateString(loc, { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
+/** Format time only (e.g. "14:30") from a date/timestamp */
+export const fmtTime = (d) => {
+  if (!d) return ''
+  const dt = new Date(d)
+  if (isNaN(dt.getTime())) return ''
+  return dt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false })
+}
+
+/** Format date + time (e.g. "8 Jun 2026, 14:30") */
+export const fmtDateTime = (d) => {
+  if (!d) return ''
+  const dt = new Date(d)
+  if (isNaN(dt.getTime())) return ''
+  const loc = getCurrency().locale
+  const datePart = dt.toLocaleDateString(loc, { day: 'numeric', month: 'short', year: 'numeric' })
+  const timePart = dt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false })
+  return `${datePart}, ${timePart}`
+}
+
 /** Get YYYY-MM key from Date */
 export const monthKey = (d) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`

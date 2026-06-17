@@ -193,7 +193,7 @@ function renderAdvisor(area, actions) {
       </div>
 
       <div class="advisor-input-wrap">
-        <textarea class="advisor-input" id="advisor-input" placeholder="Tanya sesuatu atau minta aksi (cth: ubah saldo BCA jadi 100rb)..." rows="1"
+        <textarea class="advisor-input" id="advisor-input" placeholder="Tanya atau minta aksi (cth: ubah saldo BCA jadi 100rb)" rows="1"
           onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();triggerAdvisorSend()}"
           oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"></textarea>
         <button class="advisor-send" id="advisor-send-btn" onclick="triggerAdvisorSend()" title="Kirim">➤</button>

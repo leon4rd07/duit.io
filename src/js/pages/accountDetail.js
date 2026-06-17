@@ -3,7 +3,7 @@ import { Chart } from 'chart.js/auto'
 import { state }        from '../lib/store.js'
 import { showToast }    from '../lib/toast.js'
 import { navigate }     from '../lib/router.js'
-import { fmt, fmtShort, fmtDate, monthKey, monthLabel } from '../lib/utils.js'
+import { fmt, fmtShort, fmtDate, fmtTime, monthKey, monthLabel } from '../lib/utils.js'
 import { BANK_ICONS, CURRENCIES } from '../lib/config.js'
 import { getCatObj }    from '../lib/categories.js'
 import { t }            from '../lib/i18n.js'
@@ -173,11 +173,15 @@ function renderDetailsTab(a, monthTx) {
               const color = isIn ? 'var(--green)' : 'var(--red)'
               const cat = getCatObj(t.category || '')
               const icon = t.type==='transfer' ? '↔️' : (cat.icon || '💸')
+              const txTime = fmtTime(t.created_at)
+              const noteWithTime = txTime
+                ? (t.note ? `${t.note} · ${txTime}` : txTime)
+                : (t.note || '—')
               return `<div class="acct-detail-tx" onclick="window.openEditTx && window.openEditTx('${t.id}')">
                 <div class="acct-detail-tx-icon" style="background:${cat.color || '#636e72'}22">${icon}</div>
                 <div class="acct-detail-tx-info">
                   <div class="acct-detail-tx-cat">${t.category || 'Lainnya'}</div>
-                  <div class="acct-detail-tx-note">${t.note || '—'}</div>
+                  <div class="acct-detail-tx-note">${noteWithTime}</div>
                 </div>
                 <div class="acct-detail-tx-right">
                   <div class="acct-detail-tx-amount" style="color:${color}">${sign}${fmtShort(t.amount)}</div>

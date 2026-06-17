@@ -631,6 +631,20 @@ img{max-width:100%;display:block}
 .advisor-send{width:42px;height:42px;border-radius:12px;background:var(--accent);color:#fff;font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:var(--transition);border:none;align-self:flex-end}
 .advisor-send:hover{background:var(--accent-hover)}
 .advisor-send:disabled{opacity:0.4;cursor:not-allowed}
+
+/* Mobile: leave room for bottom nav + FAB so the input isn't clipped */
+@media (max-width: 768px) {
+  .advisor-wrap {
+    height: auto;
+    min-height: calc(100vh - 200px);
+  }
+  .advisor-input-wrap {
+    padding-bottom: calc(90px + env(safe-area-inset-bottom));
+  }
+  .advisor-input {
+    min-height: 44px;
+  }
+}
 .quick-chips{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px}
 .quick-chip{padding:7px 13px;border-radius:20px;font-size:12.5px;font-weight:500;cursor:pointer;background:var(--bg3);color:var(--text2);border:1px solid var(--border);transition:var(--transition);white-space:nowrap}
 .quick-chip:hover{border-color:var(--accent);color:var(--accent)}

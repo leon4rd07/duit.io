@@ -74,6 +74,11 @@ export default async function handler(req, res) {
 
   let lastErr = '';
   let lastDetail = '';
+  // Financial advisor needs room to give a full analysis; scan tasks stay terse.
+  const isAdvisor = task === 'financial_advisor';
+  const genConfig = isAdvisor
+    ? { temperature: 0.6, maxOutputTokens: 2048 }
+    : { temperature: 0.1, maxOutputTokens: 1200 };
   for (const model of MODELS) {
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
@@ -82,7 +87,7 @@ export default async function handler(req, res) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ parts }],
-          generationConfig: { temperature: 0.1, maxOutputTokens: 1200 },
+          generationConfig: genConfig,
         }),
       });
 
