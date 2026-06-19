@@ -1206,15 +1206,11 @@ async function saveTx() {
 
   try {
     if (editingTxId) {
-      // For edits — update DB only (don't change balances manually here since old code was buggy)
-      const { error } = await state.supabase.from('transactions')
-        .update({ type:txType, amount, category, account_id, to_account_id, note, date })
-        .eq('id', editingTxId);
-      if (error) throw error;
-      const idx = state.transactions.findIndex(t=>t.id===editingTxId);
-      if (idx >= 0) {
-        state.transactions[idx] = {...state.transactions[idx], type:txType, amount, category, account_id, to_account_id, note, date};
-      }
+      // updateTransaction reverses the OLD balance effect then applies the NEW one,
+      // so changing bank/amount/type correctly moves money between accounts.
+      await DB.updateTransaction(editingTxId, {
+        type: txType, amount, category, account_id, to_account_id, note, date,
+      });
       showToast('Transaksi diperbarui ✓');
     } else {
       // Use DB helper that auto-updates balances
@@ -1237,44 +1233,6 @@ async function saveTx() {
     btn.disabled = false;
     btn.textContent = editingTxId ? 'Simpan Perubahan' : 'Simpan Transaksi';
   }
-}
-
-async function applyBalance(t) {
-  const ac = state.accounts.find(a=>a.id===t.account_id);
-  if (!ac) return;
-  let newBal = Number(ac.balance);
-  if (t.type==='expense') newBal -= Number(t.amount);
-  else if (t.type==='income') newBal += Number(t.amount);
-  else if (t.type==='transfer') {
-    newBal -= Number(t.amount);
-    const toAc = state.accounts.find(a=>a.id===t.to_account_id);
-    if (toAc) {
-      const toNewBal = Number(toAc.balance)+Number(t.amount);
-      await state.supabase.from('accounts').update({balance:toNewBal}).eq('id',toAc.id);
-      toAc.balance = toNewBal;
-    }
-  }
-  await state.supabase.from('accounts').update({balance:newBal}).eq('id',ac.id);
-  ac.balance = newBal;
-}
-
-async function reverseBalance(t) {
-  const ac = state.accounts.find(a=>a.id===t.account_id);
-  if (!ac) return;
-  let newBal = Number(ac.balance);
-  if (t.type==='expense') newBal += Number(t.amount);
-  else if (t.type==='income') newBal -= Number(t.amount);
-  else if (t.type==='transfer') {
-    newBal += Number(t.amount);
-    const toAc = state.accounts.find(a=>a.id===t.to_account_id);
-    if (toAc) {
-      const toNewBal = Number(toAc.balance)-Number(t.amount);
-      await state.supabase.from('accounts').update({balance:toNewBal}).eq('id',toAc.id);
-      toAc.balance = toNewBal;
-    }
-  }
-  await state.supabase.from('accounts').update({balance:newBal}).eq('id',ac.id);
-  ac.balance = newBal;
 }
 
 

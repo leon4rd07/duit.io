@@ -134,8 +134,9 @@ export async function updateAccountBalance(id, delta) {
 
 /**
  * Set an account's balance to an absolute value.
- * Creates an adjustment transaction (income/expense) for the difference so
- * the balance history stays consistent.
+ * By default creates an adjustment transaction for the difference (keeps history).
+ * Pass opts.silent=true to set the balance directly WITHOUT creating a transaction —
+ * useful for correcting drift to match the real bank balance.
  * @returns {Promise<{tx: object|null, diff: number}>}
  */
 export async function setAccountBalance(id, newBalance, opts = {}) {
@@ -148,12 +149,18 @@ export async function setAccountBalance(id, newBalance, opts = {}) {
   // No change → nothing to do
   if (Math.abs(diff) < 0.5) return { tx: null, diff: 0 }
 
+  // Silent correction: just set the balance, no adjustment transaction
+  if (opts.silent) {
+    await updateAccount(id, { balance: target })
+    return { tx: null, diff }
+  }
+
   // Create an adjustment transaction for the difference
   const txType = diff >= 0 ? 'income' : 'expense'
   const payload = {
     type: txType,
     amount: Math.abs(diff),
-    category: opts.category || (diff >= 0 ? 'Penyesuaian' : 'Penyesuaian'),
+    category: opts.category || 'Penyesuaian',
     note: opts.note || 'Penyesuaian saldo manual',
     account_id: id,
     date: opts.date || new Date().toISOString().slice(0, 10),
@@ -176,8 +183,17 @@ export async function createTransaction(payload) {
 }
 
 export async function updateTransaction(id, newPayload) {
-  const old = state.transactions.find(t => t.id === id)
-  if (old) await reverseBalanceEffect(old)
+  // Snapshot the OLD values into a plain object BEFORE any async work, so that
+  // mutating state.transactions[idx] later can't corrupt the reversal math.
+  const existing = state.transactions.find(t => t.id === id)
+  const oldSnapshot = existing ? {
+    type: existing.type,
+    amount: existing.amount,
+    account_id: existing.account_id,
+    to_account_id: existing.to_account_id,
+  } : null
+
+  if (oldSnapshot) await reverseBalanceEffect(oldSnapshot)
 
   const { error } = await db.from('transactions').update(newPayload).eq('id', id)
   if (error) throw error
