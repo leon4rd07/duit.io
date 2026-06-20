@@ -54,7 +54,7 @@ function renderDashboard(area, actions) {
     <div class="summary-grid mb-16">
       <div class="summary-card">
         <div class="stat-label">${t('dash.total_balance')}</div>
-        <div class="stat-value" style="font-size:18px;color:var(--accent)">${isBalHidden('total') ? '••••' : fmtShort(totalBalance)}</div>
+        <div class="stat-value" style="font-size:18px;color:var(--accent)">${isBalHidden('total') ? '••••' : fmt(totalBalance)}</div>
       </div>
       <div class="summary-card">
         <div class="stat-label">${t('dash.income')}</div>
@@ -107,7 +107,7 @@ function renderDashboard(area, actions) {
           <div style="background:var(--bg3);border-radius:10px;padding:12px 16px;min-width:130px;border-left:3px solid ${accColor}">
             <div style="font-size:11px;color:var(--text2);margin-bottom:3px">${a.icon || BANK_ICONS[a.bank] || '💳'} ${a.bank}</div>
             <div style="font-size:13px;font-weight:600;margin-bottom:2px">${a.name}</div>
-            <div style="font-size:15px;font-weight:700;color:${accColor}">${maskIf(isBalHidden(a.id), fmtShort(a.balance))}</div>
+            <div style="font-size:15px;font-weight:700;color:${accColor}">${maskIf(isBalHidden(a.id), fmt(a.balance))}</div>
           </div>`;
         }).join('') || `<div class="text-muted text-sm">${t('empty.accounts')}</div>`}
       </div>

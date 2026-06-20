@@ -185,7 +185,7 @@ function renderDetailsTab(a, monthTx) {
                 </div>
                 <div class="acct-detail-tx-right">
                   <div class="acct-detail-tx-amount" style="color:${color}">${sign}${fmtShort(t.amount)}</div>
-                  <div class="acct-detail-tx-balance">Saldo: ${fmtShort(balanceAtDate[d])}</div>
+                  <div class="acct-detail-tx-balance">Saldo: ${fmt(balanceAtDate[d])}</div>
                 </div>
               </div>`
             }).join('')}
@@ -264,7 +264,7 @@ function renderDailyRows(a, monthTx) {
       <div style="color:${r.net >= 0 ? 'var(--green)' : 'var(--red)'};font-weight:600">
         ${r.net >= 0 ? '+' : ''}${fmtShort(r.net)}
       </div>
-      <div style="font-weight:600">${fmtShort(r.balance)}</div>
+      <div style="font-weight:600">${fmt(r.balance)}</div>
     </div>
   `).join('')
 }

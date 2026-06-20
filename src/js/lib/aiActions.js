@@ -50,6 +50,10 @@ priority: 1=tinggi, 2=sedang (default), 3=rendah. Kalau ada target_date, sistem 
 12. Tambah tabungan ke item wishlist (cuma update progress, tidak mengubah saldo rekening):
 <ACTION>{"type":"add_savings_wishlist","id":"<id pendek>","amount":<jumlah}</ACTION>
 
+13. Tambah transaksi/aktivitas RUTIN (recurring) — untuk pengeluaran/pemasukan berulang seperti bayar kos, gaji, langganan. Ini BERBEDA dari anggaran: rutin = template transaksi berulang, anggaran = batas pengeluaran:
+<ACTION>{"type":"add_recurring","name":"<nama, cth: Bayar Kos>","rec_type":"expense","amount":<jumlah>,"account":"<rekening>","category":"<kategori>","frequency":"monthly"}</ACTION>
+rec_type: "expense" atau "income". frequency: "daily", "weekly", "monthly" (default), atau "yearly".
+
 ATURAN PENTING UNTUK AKSI:
 - Selalu balas dulu dengan kalimat singkat menjelaskan apa yang akan dilakukan, BARU lampirkan <ACTION>...</ACTION>
 - JSON di dalam <ACTION> harus valid (tanda kutip ganda, koma benar)
@@ -308,6 +312,22 @@ export function describeAction(action) {
         warning: null,
       }
     }
+    case 'add_recurring': {
+      const acc = findAccountByName(action.account)
+      const freqLabel = { daily:'harian', weekly:'mingguan', monthly:'bulanan', yearly:'tahunan' }[action.frequency || 'monthly'] || 'bulanan'
+      const recType = action.rec_type === 'income' ? 'Pemasukan' : 'Pengeluaran'
+      return {
+        icon: '🔁',
+        title: 'Tambah Transaksi Rutin',
+        lines: [
+          `${action.name || '(tanpa nama)'}`,
+          `${recType} ${rp(action.amount)} · ${freqLabel}`,
+          acc ? `Rekening: ${acc.name}` : '⚠️ Rekening tidak ditemukan',
+          action.category ? `Kategori: ${action.category}` : '',
+        ].filter(Boolean),
+        warning: acc ? null : 'invalid',
+      }
+    }
     default:
       return {
         icon: '❓',
@@ -443,6 +463,29 @@ export async function executeAction(action) {
         state.debts[idx].settled = settled
       }
       return `Pelunasan ${d.contact_name} ${rp(payAmt)} dicatat${settled ? ' (lunas ✓)' : ''}`
+    }
+
+    case 'add_recurring': {
+      if (!action.name) throw new Error('Nama transaksi rutin wajib diisi')
+      const amount = Number(action.amount)
+      if (!amount || amount <= 0) throw new Error('Jumlah tidak valid')
+      const acc = findAccountByName(action.account)
+      if (!acc) throw new Error(`Rekening "${action.account}" tidak ditemukan`)
+      const recType = action.rec_type === 'income' ? 'income' : 'expense'
+      const validFreq = ['daily', 'weekly', 'monthly', 'yearly']
+      const frequency = validFreq.includes(action.frequency) ? action.frequency : 'monthly'
+      const payload = {
+        name: action.name,
+        type: recType,
+        amount,
+        category: action.category || (recType === 'income' ? 'Lainnya' : 'Lainnya'),
+        account_id: acc.id,
+        frequency,
+      }
+      const data = await DB.createRecurring(payload)
+      if (data && !state.recurring.find(r => r.id === data.id)) state.recurring.push(data)
+      const freqLabel = { daily:'harian', weekly:'mingguan', monthly:'bulanan', yearly:'tahunan' }[frequency]
+      return `Transaksi rutin "${action.name}" (${rp(amount)} ${freqLabel}) ditambahkan`
     }
 
     case 'add_wishlist': {

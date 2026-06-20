@@ -632,17 +632,18 @@ img{max-width:100%;display:block}
 .advisor-send:hover{background:var(--accent-hover)}
 .advisor-send:disabled{opacity:0.4;cursor:not-allowed}
 
-/* Mobile: leave room for bottom nav + FAB so the input isn't clipped */
+/* Mobile: keep the chat input compact and clear of the bottom nav */
 @media (max-width: 768px) {
   .advisor-wrap {
-    height: auto;
-    min-height: calc(100vh - 200px);
+    height: calc(100dvh - 160px);
+    min-height: 400px;
+    padding-bottom: calc(76px + env(safe-area-inset-bottom));
   }
   .advisor-input-wrap {
-    padding-bottom: calc(90px + env(safe-area-inset-bottom));
+    padding-top: 10px;
   }
   .advisor-input {
-    min-height: 44px;
+    min-height: 40px;
   }
 }
 .quick-chips{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px}
