@@ -87,6 +87,12 @@ function showScanResultModal(status, message, data) {
           <div style="font-size:28px;font-weight:800;color:var(--green)">${fmt(data.total || 0)}</div>
           ${data.category ? `<div style="font-size:12px;color:var(--text3);margin-top:4px">📁 ${data.category}</div>` : ''}
           ${data.items?.length ? `<div style="font-size:12px;color:var(--text3);margin-top:4px">${data.items.length} item terdeteksi</div>` : ''}
+          ${(data.tax_amount > 0 || data.discount_amount > 0) ? `
+            <div style="display:flex;justify-content:center;gap:14px;margin-top:8px;font-size:11.5px">
+              ${data.tax_amount > 0 ? `<span style="color:var(--text2)">Pajak: ${fmt(data.tax_amount)}</span>` : ''}
+              ${data.discount_amount > 0 ? `<span style="color:var(--green)">Diskon: -${fmt(data.discount_amount)}</span>` : ''}
+            </div>
+          ` : ''}
         </div>
       ` : '',
       actions: `
@@ -244,16 +250,19 @@ async function doScan() {
   navigate('scan')
 
   try {
-    const prompt = `Analisa struk/nota ini dan berikan hasil HANYA dalam format JSON valid (tanpa markdown, tanpa penjelasan tambahan):
+    const prompt = `Analisa struk/nota ini dengan detail dan berikan hasil HANYA dalam format JSON valid (tanpa markdown, tanpa penjelasan tambahan):
 {
   "merchant": "nama toko",
-  "total": angka_total,
+  "total": angka_total_akhir_yang_benar_benar_dibayar,
+  "subtotal": angka_subtotal_sebelum_pajak_dan_diskon (atau null kalau tidak ada rincian),
+  "tax_amount": jumlah_pajak_PB1_PPN_dalam_rupiah (0 kalau tidak ada),
+  "discount_amount": jumlah_total_diskon_potongan_dalam_rupiah (0 kalau tidak ada),
   "date": "YYYY-MM-DD" atau null,
-  "items": [{"name": "nama item", "qty": jumlah, "price": harga}],
+  "items": [{"name": "nama item", "qty": jumlah, "price": harga_satuan_sebelum_diskon}],
   "category": "Food/Grocery/Transport/Shopping/Coffee/Dining Out/etc",
   "is_receipt": true_atau_false
 }
-Jika bukan struk/nota, set is_receipt=false.`
+Kalau ada baris diskon (mis. "PERCENTAGE DISCOUNT", "Total Saving", potongan promo), masukkan totalnya ke discount_amount. Kalau ada pajak/PB1/PPN/service charge, masukkan ke tax_amount. Kalau struk hanya menampilkan total tanpa rincian item (mis. struk pembayaran QR), kosongkan items jadi array kosong tapi tetap isi total dengan benar. Jika bukan struk/nota, set is_receipt=false.`
 
     let result
     try {
@@ -313,6 +322,14 @@ function showScanResult(area) {
         ${r.date ? `<div class="scan-result-date">${fmtDate(r.date)}</div>` : ''}
         ${r.category ? `<div class="scan-result-badge">${r.category}</div>` : ''}
       </div>
+
+      ${(r.subtotal || r.tax_amount > 0 || r.discount_amount > 0) ? `
+        <div style="margin-top:10px;padding:10px 14px;background:var(--bg3);border-radius:10px;font-size:12.5px">
+          ${r.subtotal ? `<div style="display:flex;justify-content:space-between;padding:3px 0"><span style="color:var(--text2)">Subtotal</span><span>${fmt(r.subtotal)}</span></div>` : ''}
+          ${r.tax_amount > 0 ? `<div style="display:flex;justify-content:space-between;padding:3px 0"><span style="color:var(--text2)">Pajak</span><span>${fmt(r.tax_amount)}</span></div>` : ''}
+          ${r.discount_amount > 0 ? `<div style="display:flex;justify-content:space-between;padding:3px 0"><span style="color:var(--green)">Diskon</span><span style="color:var(--green)">-${fmt(r.discount_amount)}</span></div>` : ''}
+        </div>
+      ` : ''}
 
       ${r.items && r.items.length ? `
         <div style="margin-top:14px">
@@ -402,16 +419,17 @@ function clearScan() {
 function goSplitFromScan() {
   const r = state.lastScanResult
   if (!r) return
-  // Pre-fill split bill state
+  // Pre-fill split bill state (consumed by splitbill.js on next render)
   state.sb = state.sb || {}
-  state.sb.step = 'home'
   state.sb.note = r.merchant || ''
   state.sb.totalAmount = r.total || 0
+  state.sb.subtotal = r.subtotal || r.total || 0
+  state.sb.taxAmount = r.tax_amount || 0
+  state.sb.discountAmount = r.discount_amount || 0
   state.sb.items = (r.items || []).map(it => ({
     name: it.name || '?',
     qty: it.qty || 1,
     price: it.price || 0,
-    assignees: []
   }))
   navigate('splitbill')
 }

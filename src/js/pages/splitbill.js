@@ -34,6 +34,27 @@ let sbState = {
 
 function renderSplitBill(area, actions) {
   sbState.payAccountId = sbState.payAccountId || state.accounts[0]?.id || '';
+
+  // Absorb a pending hand-off from scan.js's "Bagi dengan teman" button.
+  // scan.js writes to state.sb (a separate object) since it doesn't have
+  // access to this module's internal sbState — pick it up here and consume it.
+  if (state.sb && (state.sb.totalAmount || (state.sb.items && state.sb.items.length))) {
+    sbState.note = state.sb.note || '';
+    sbState.totalAmount = state.sb.totalAmount || 0;
+    sbState.subtotal = state.sb.subtotal || state.sb.totalAmount || 0;
+    sbState.taxAmount = state.sb.taxAmount || 0;
+    sbState.serviceAmount = state.sb.serviceAmount || 0;
+    sbState.discountAmount = state.sb.discountAmount || 0;
+    sbState.items = (state.sb.items || []).map(it => ({
+      name: it.name || '?',
+      qty: it.qty || 1,
+      price: it.price || 0,
+      assignedTo: sbState.members.map((_,i)=>i),
+    }));
+    sbState.step = 'bill_detail';
+    state.sb = null; // consumed
+  }
+
   actions.innerHTML = sbState.step !== 'home'
     ? `<button class="btn btn-ghost btn-sm" onclick="sbGoBack()">← Kembali</button>`
     : '';
@@ -56,9 +77,10 @@ function sbGoBack() {
   navigate('splitbill');
 }
 
+const SB_STEPS = ['bill_detail', 'members', 'assign', 'summary'];
 function sbStepIndicator(current) {
   return `<div class="sb-steps">
-    ${steps.map((s,i) => `<div class="sb-step ${s===current?'active':steps.indexOf(current)>i?'done':''}"></div>`).join('')}
+    ${SB_STEPS.map((s,i) => `<div class="sb-step ${s===current?'active':SB_STEPS.indexOf(current)>i?'done':''}"></div>`).join('')}
   </div>`;
 }
 
@@ -144,24 +166,32 @@ function sbRenderScanning(area) {
 }
 
 async function sbDoScan() {
-  const prompt = `Analisis struk/bon restoran ini dengan sangat detail. Kembalikan HANYA JSON valid:\n{"restaurant":"<nama>","items":[{"name":"<nama item>","qty":<angka>,"price":<harga per item Rupiah>}],"subtotal":<angka>,"tax_amount":<jumlah pajak Rupiah>,"service_amount":<jumlah service Rupiah>,"discount_amount":<jumlah diskon>,"total":<grand total Rupiah>}\nEkstrak SEMUA item. price = harga satuan sebelum dikali qty. Kalau ada PB1/pajak hitung sebagai tax_amount.`;
+  const prompt = `Analisis struk/bon restoran ini dengan sangat detail. Kembalikan HANYA JSON valid:\n{"restaurant":"<nama>","items":[{"name":"<nama item>","qty":<angka>,"price":<harga per item Rupiah>}],"subtotal":<angka>,"tax_amount":<jumlah pajak Rupiah>,"service_amount":<jumlah service Rupiah>,"discount_amount":<jumlah diskon>,"total":<grand total Rupiah>}\nEkstrak SEMUA item kalau ada rinciannya. price = harga satuan SEBELUM dikali qty dan SEBELUM diskon. Kalau ada PB1/pajak/PPN hitung sebagai tax_amount. Kalau ada baris diskon/promo/saving, masukkan ke discount_amount. Kalau struk tidak punya rincian item (cth: struk pembayaran QR), kosongkan items jadi array kosong tapi tetap isi total dengan benar.`;
   try {
     const text = await callAI('split_bill_scan', prompt, sbState.scanImgData, sbState.scanImgMime);
-    const parsed = JSON.parse(text.replace(/```json|```/g,'').trim());
+
+    // Robust JSON extraction — AI may wrap the JSON in markdown fences or add
+    // stray text before/after it. Extract just the {...} block first, like scan.js does,
+    // instead of naively JSON.parse()-ing the raw text (which broke on any extra formatting).
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    const parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(text.replace(/```json|```/g,'').trim());
+
     sbState.note = parsed.restaurant || '';
     sbState.items = (parsed.items||[]).map(it => ({
-      ...it,
+      name: it.name || '?',
+      qty: Number(it.qty) || 1,
+      price: Number(it.price) || 0,
       assignedTo: Array.from({length: sbState.members.length}, (_,i) => i) // all members by default
     }));
-    sbState.subtotal = parsed.subtotal || 0;
-    sbState.taxAmount = parsed.tax_amount || 0;
-    sbState.serviceAmount = parsed.service_amount || 0;
-    sbState.discountAmount = parsed.discount_amount || 0;
-    sbState.totalAmount = parsed.total || (sbState.subtotal + sbState.taxAmount + sbState.serviceAmount - sbState.discountAmount);
+    sbState.subtotal = Number(parsed.subtotal) || sbState.items.reduce((s,it)=>s+(it.price*it.qty),0);
+    sbState.taxAmount = Number(parsed.tax_amount) || 0;
+    sbState.serviceAmount = Number(parsed.service_amount) || 0;
+    sbState.discountAmount = Number(parsed.discount_amount) || 0;
+    sbState.totalAmount = Number(parsed.total) || (sbState.subtotal + sbState.taxAmount + sbState.serviceAmount - sbState.discountAmount);
     sbState.step = 'bill_detail';
     navigate('splitbill');
   } catch(e) {
-    showToast('Gagal baca struk: ' + e.message, 'error');
+    showToast('Gagal baca struk: hasil AI tidak terbaca. Isi manual ya 🙏', 'error');
     sbState.step = 'bill_detail';
     navigate('splitbill');
   }
@@ -351,6 +381,7 @@ function sbRenderMembers(area) {
 }
 
 function sbToggleMember(name) {
+  const idx = sbState.members.findIndex(m=>m.name===name);
   if (idx >= 0) { sbState.members.splice(idx,1); }
   else { sbState.members.push({name, paid:false, isMe:false}); }
   // Update item assignments
@@ -426,6 +457,7 @@ function sbRenderAssign(area) {
 
 function sbToggleItemAssign(itemIdx, memberIdx) {
   const it = sbState.items[itemIdx];
+  const idx = it.assignedTo.indexOf(memberIdx);
   if (idx >= 0) it.assignedTo.splice(idx,1);
   else it.assignedTo.push(memberIdx);
   navigate('splitbill');
@@ -449,6 +481,7 @@ function sbCalcMemberShares() {
     return sbState.members.map((m,i) => ({...m, share: perPerson + (i===0?rem:0)}));
   }
   // Item-based
+  const subtotal = sbState.items.reduce((s,it)=>s+(it.price*it.qty),0);
   const extraRatio = subtotal > 0 ? sbState.totalAmount / subtotal : 1;
   return sbState.members.map((m,mi) => {
     let share = 0;
@@ -517,6 +550,7 @@ function sbTogglePaid(memberIdx) {
 }
 
 function sbCopyWA() {
+  const shares = sbCalcMemberShares();
   const lines = [`🍽️ *${sbState.note||'Split Bill'}*`, `Total: ${fmt(sbState.totalAmount)}`, ''];
   shares.forEach(m => {
     lines.push(`${m.isMe?'Saya':m.name}: Rp ${m.share.toLocaleString('id-ID')} ${m.paid?'✓':''}`);
@@ -526,31 +560,40 @@ function sbCopyWA() {
 }
 
 async function sbFinalize() {
+  const shares = sbCalcMemberShares();
+  const myShare = shares[0]?.share || 0;
   const acId = sbState.payAccountId || state.accounts[0]?.id;
   const date = new Date().toISOString().split('T')[0];
   const note = sbState.note || 'Split Bill';
 
-  // Save my transaction
-  if (myShare > 0 && acId) {
-    const payload = {user_id:state.currentUser.id,type:'expense',amount:myShare,category:'🍜 Food',account_id:acId,note,date};
-    const {data,error} = await state.supabase.from('transactions').insert([payload]).select().single();
-    if (!error && data) { state.transactions.unshift(data); await applyBalance(payload); }
-  }
+  try {
+    // Save my own portion as a transaction — DB.createTransaction also
+    // updates the account balance correctly (single source of truth for balance math).
+    if (myShare > 0 && acId) {
+      await DB.createTransaction({
+        type: 'expense', amount: myShare, account_id: acId,
+        category: 'Food', note, date,
+      });
+    }
 
-  // Create piutang for unpaid members
-  let debtCount = 0;
-  for (let i = 1; i < shares.length; i++) {
-    const m = shares[i];
-    if (m.paid) continue;
-    const {data:d} = await state.supabase.from('debts').insert([{
-      user_id:state.currentUser.id, contact_name:m.name, direction:'lent',
-      amount:m.share, remaining:m.share, note:`${note} — bagian split`, due_date:null
-    }]).select().single();
-    if (d) { state.debts.unshift(d); debtCount++; }
-  }
+    // Create piutang (lent) for members who haven't paid yet
+    let debtCount = 0;
+    for (let i = 1; i < shares.length; i++) {
+      const m = shares[i];
+      if (m.paid || m.share <= 0) continue;
+      await DB.createDebt({
+        contact_name: m.name, direction: 'lent',
+        amount: m.share, remaining: m.share,
+        note: `${note} — bagian split`, due_date: null,
+      });
+      debtCount++;
+    }
 
-  showToast(debtCount>0 ? `Split disimpan! ${debtCount} piutang dibuat 💚` : 'Split bill disimpan!');
-  sbReset();
+    showToast(debtCount>0 ? `Split disimpan! ${debtCount} piutang dibuat 💚` : 'Split bill disimpan!');
+    sbReset();
+  } catch (e) {
+    showToast('Gagal menyimpan split: ' + e.message, 'error');
+  }
 }
 
 function sbReset() {
@@ -564,13 +607,6 @@ function sbReset() {
 
 // Legacy compat
 function resetSplit() { sbReset(); }
-function goSplitFromScan(amount, note) {
-  sbState.totalAmount = amount;
-  sbState.subtotal = amount;
-  sbState.note = note;
-  sbState.step = 'bill_detail';
-  navigate('splitbill');
-}
 
 
 export { renderSplitBill, sbReset }
