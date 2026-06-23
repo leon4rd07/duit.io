@@ -12,6 +12,7 @@ import { ACTION_DEFINITIONS, parseActions, describeAction, executeAction } from 
 
 let advisorHistory = []
 let advisorTyping  = false
+let advisorPendingImage = null // { base64, mimeType, dataUrl, name } — staged before send
 
 // ===== AI FINANCIAL ADVISOR =====
 
@@ -203,14 +204,20 @@ function renderAdvisor(area, actions) {
         ${renderMessages()}
       </div>
 
-      <div class="advisor-input-wrap">
-        <textarea class="advisor-input" id="advisor-input" placeholder="Tanya atau minta aksi (cth: ubah saldo BCA jadi 100rb)" rows="1"
-          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();triggerAdvisorSend()}"
-          oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"></textarea>
-        <button class="advisor-send" id="advisor-send-btn" onclick="triggerAdvisorSend()" title="Kirim">➤</button>
+      <div class="advisor-input-area" id="advisor-input-area">
+        <div class="advisor-img-preview" id="advisor-img-preview"></div>
+        <div class="advisor-input-wrap">
+          <input type="file" id="advisor-img-input" accept="image/*" capture="environment" style="display:none" onchange="handleAdvisorImageSelect(event)">
+          <button class="advisor-attach-btn" onclick="document.getElementById('advisor-img-input').click()" title="Lampirkan foto riwayat transaksi">📎</button>
+          <textarea class="advisor-input" id="advisor-input" placeholder="Tanya atau minta aksi (cth: ubah saldo BCA jadi 100rb)" rows="1"
+            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();triggerAdvisorSend()}"
+            oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"></textarea>
+          <button class="advisor-send" id="advisor-send-btn" onclick="triggerAdvisorSend()" title="Kirim">➤</button>
+        </div>
       </div>
     </div>`;
 
+  renderAdvisorImgPreview();
   scrollAdvisorToBottom();
 }
 
@@ -253,8 +260,17 @@ function msgHtml(m, msgIdx) {
     ? `<div class="msg-bubble ${isAI?'ai':'user'}">${formattedContent}</div>`
     : '';
 
+  const imgHtml = (!isAI && m.image)
+    ? `<img src="${m.image}" alt="lampiran" style="max-width:180px;border-radius:12px;margin-top:6px;display:block" />`
+    : '';
+
+  let bulkBtn = '';
   let cardsHtml = '';
   if (m.actions && m.actions.length) {
+    const pendingCount = m.actions.filter(a => a.status === 'pending' && describeAction(a).warning !== 'invalid').length;
+    if (pendingCount > 1) {
+      bulkBtn = `<button class="btn btn-accent btn-sm" style="margin-bottom:8px;width:100%" onclick="advisorConfirmAllActions(${msgIdx})">✓ Konfirmasi Semua (${pendingCount})</button>`;
+    }
     cardsHtml = m.actions.map((a, aIdx) => actionCardHtml(a, msgIdx, aIdx)).join('');
   }
 
@@ -263,6 +279,8 @@ function msgHtml(m, msgIdx) {
       <div class="msg-avatar ${isAI?'ai':'user'}">${isAI?'🤖':'👤'}</div>
       <div class="msg-content">
         ${bubble}
+        ${imgHtml}
+        ${bulkBtn}
         ${cardsHtml}
       </div>
     </div>`;
@@ -336,6 +354,19 @@ async function advisorConfirmAction(msgIdx, aIdx) {
   refreshAdvisorMessages();
 }
 
+async function advisorConfirmAllActions(msgIdx) {
+  const msg = advisorHistory[msgIdx];
+  if (!msg || !msg.actions) return;
+  const pendingIdxs = msg.actions
+    .map((a, i) => ({ a, i }))
+    .filter(x => x.a.status === 'pending' && describeAction(x.a).warning !== 'invalid')
+    .map(x => x.i);
+
+  for (const idx of pendingIdxs) {
+    await advisorConfirmAction(msgIdx, idx); // sequential — each call also re-renders
+  }
+}
+
 function advisorCancelAction(msgIdx, aIdx) {
   const msg = advisorHistory[msgIdx];
   if (!msg || !msg.actions) return;
@@ -352,25 +383,73 @@ function scrollAdvisorToBottom() {
   }, 50);
 }
 
-function triggerAdvisorSend() {
-  const input = document.getElementById('advisor-input');
-  const text = input?.value.trim();
-  if (text) {
-    input.value = '';
-    input.style.height = 'auto';
-    sendAdvisorMsg(text);
+function handleAdvisorImageSelect(e) {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) {
+    showToast('File harus berupa gambar', 'error');
+    e.target.value = '';
+    return;
   }
+  const reader = new FileReader();
+  reader.onload = () => {
+    const dataUrl = reader.result;
+    const base64 = String(dataUrl).split(',')[1] || '';
+    advisorPendingImage = { base64, mimeType: file.type, dataUrl, name: file.name };
+    renderAdvisorImgPreview();
+  };
+  reader.onerror = () => showToast('Gagal membaca gambar', 'error');
+  reader.readAsDataURL(file);
+  e.target.value = ''; // allow re-selecting the same file later
 }
 
-async function sendAdvisorMsg(text) {
+function renderAdvisorImgPreview() {
+  const el = document.getElementById('advisor-img-preview');
+  if (!el) return;
+  if (!advisorPendingImage) {
+    el.className = 'advisor-img-preview';
+    el.innerHTML = '';
+    return;
+  }
+  el.className = 'advisor-img-preview show';
+  el.innerHTML = `
+    <img src="${advisorPendingImage.dataUrl}" alt="preview" />
+    <span style="font-size:12px;color:var(--text2);flex:1">Riwayat transaksi siap dianalisis</span>
+    <span class="remove-img" onclick="removeAdvisorImage()" title="Hapus gambar">✕</span>
+  `;
+}
+
+function removeAdvisorImage() {
+  advisorPendingImage = null;
+  renderAdvisorImgPreview();
+}
+
+function triggerAdvisorSend() {
+  const input = document.getElementById('advisor-input');
+  const text = input?.value.trim() || '';
+  const img = advisorPendingImage;
+  if (!text && !img) return;
+  input.value = '';
+  input.style.height = 'auto';
+  advisorPendingImage = null;
+  renderAdvisorImgPreview();
+  sendAdvisorMsg(text, img);
+}
+
+async function sendAdvisorMsg(text, image = null) {
   if (advisorTyping) return;
+  if (!text && !image) return;
 
   // Hide quick chips after first message
   const chips = document.getElementById('quick-chips');
   if (chips) chips.style.display = 'none';
 
-  // Add user message and re-render
-  advisorHistory.push({ role: 'user', content: text });
+  // Add user message and re-render (image shown as a thumbnail in the bubble)
+  advisorHistory.push({
+    role: 'user',
+    content: text || (image ? '📷 Foto riwayat transaksi' : ''),
+    image: image ? image.dataUrl : undefined,
+  });
   refreshAdvisorMessages();
 
   // Show typing indicator
@@ -394,10 +473,9 @@ async function sendAdvisorMsg(text) {
 
   try {
     const systemPrompt = buildFinancialContext();
-    // Build full prompt with history for the proxy
     // For prior assistant turns, include action outcomes so AI knows what happened
     const historyText = advisorHistory.slice(0,-1).map(m => {
-      if (m.role === 'user') return 'User: ' + m.content;
+      if (m.role === 'user') return 'User: ' + (m.content || '');
       let line = 'Assistant: ' + (m.content || '');
       if (m.actions && m.actions.length) {
         const outcomes = m.actions.map(a => {
@@ -411,14 +489,35 @@ async function sendAdvisorMsg(text) {
       return line;
     }).join('\n\n');
 
-    const fullPrompt = systemPrompt + '\n\n' +
-      (historyText ? 'RIWAYAT PERCAKAPAN:\n'+historyText+'\n\n' : '') +
-      'User: ' + text;
+    let fullPrompt;
+    if (image) {
+      // Bulk transaction extraction from an image (bank statement, e-wallet
+      // mutation screenshot, or a handwritten transaction log).
+      const imgInstructions = `PENTING — Pengguna baru melampirkan FOTO RIWAYAT TRANSAKSI (bisa berupa screenshot mutasi rekening/e-wallet, foto buku catatan, atau daftar transaksi tertulis).
+Tugasmu: baca SEMUA transaksi yang terlihat di gambar, lalu untuk SETIAP transaksi yang ditemukan buat SATU blok <ACTION> terpisah dengan format add_transaction (lihat definisi aksi di atas). Jangan gabungkan beberapa transaksi menjadi satu aksi.
+Aturan ekstraksi:
+- tx_type: "expense" untuk uang keluar/debit, "income" untuk uang masuk/kredit.
+- amount: angka murni tanpa simbol Rp atau pemisah ribuan (mis. 50000, bukan "50.000" atau "Rp 50rb").
+- account: pilih nama rekening yang PALING SESUAI dari daftar rekening pengguna di atas. Kalau gambar menyebut rekening yang gak ada di daftar, tetap pilih yang paling masuk akal.
+- category: tebak dari deskripsi transaksi (mis. "INDOMARET" → Grocery, "GOJEK" → Transport).
+- date: ambil dari tanggal di gambar (format YYYY-MM-DD). Kalau gambar tidak menunjukkan tahun, asumsikan tahun ${new Date().getFullYear()}. Kalau benar-benar tidak ada tanggal sama sekali, gunakan hari ini.
+- note: deskripsi singkat transaksi sesuai yang tertulis di gambar.
+Sebelum daftar aksi, beri ringkasan SANGAT singkat (1 kalimat saja, mis. "Aku menemukan 5 transaksi di gambar ini, cek dan konfirmasi satu-satu di bawah ya."). JANGAN berikan analisis keuangan panjang di respons ini — fokus hanya pada ekstraksi transaksi. Pengguna akan meninjau dan konfirmasi tiap transaksi sebelum disimpan.`;
+      fullPrompt = systemPrompt + '\n\n' + imgInstructions +
+        (text ? `\n\nCatatan tambahan dari pengguna: ${text}` : '');
+    } else {
+      fullPrompt = systemPrompt + '\n\n' +
+        (historyText ? 'RIWAYAT PERCAKAPAN:\n'+historyText+'\n\n' : '') +
+        'User: ' + text;
+    }
 
-    const reply = await callAI('financial_advisor', fullPrompt) || 'Maaf, tidak ada respons.';
+    const reply = image
+      ? await callAI('financial_advisor', fullPrompt, image.base64, image.mimeType)
+      : await callAI('financial_advisor', fullPrompt);
 
-    // Parse out actions from reply
-    const { cleanText, actions } = parseActions(reply);
+    // Parse out actions from reply (multiple <ACTION> blocks supported —
+    // each detected transaction becomes its own confirmation card)
+    const { cleanText, actions } = parseActions(reply || '');
 
     advisorHistory.push({
       role: 'assistant',
@@ -451,6 +550,7 @@ async function sendAdvisorMsg(text) {
 
 function clearAdvisorHistory() {
   advisorHistory = [];
+  advisorPendingImage = null;
   navigate('advisor');
 }
 
@@ -460,4 +560,7 @@ window.sendAdvisorMsg = sendAdvisorMsg
 window.triggerAdvisorSend = triggerAdvisorSend
 window.clearAdvisorHistory = clearAdvisorHistory
 window.advisorConfirmAction = advisorConfirmAction
+window.advisorConfirmAllActions = advisorConfirmAllActions
 window.advisorCancelAction = advisorCancelAction
+window.handleAdvisorImageSelect = handleAdvisorImageSelect
+window.removeAdvisorImage = removeAdvisorImage
