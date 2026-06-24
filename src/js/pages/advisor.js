@@ -207,9 +207,9 @@ function renderAdvisor(area, actions) {
       <div class="advisor-input-area" id="advisor-input-area">
         <div class="advisor-img-preview" id="advisor-img-preview"></div>
         <div class="advisor-input-wrap">
-          <input type="file" id="advisor-img-input" accept="image/*" capture="environment" style="display:none" onchange="handleAdvisorImageSelect(event)">
-          <button class="advisor-attach-btn" onclick="document.getElementById('advisor-img-input').click()" title="Lampirkan foto riwayat transaksi">📎</button>
-          <textarea class="advisor-input" id="advisor-input" placeholder="Tanya atau minta aksi (cth: ubah saldo BCA jadi 100rb)" rows="1"
+          <input type="file" id="advisor-img-input" accept="image/*" style="display:none" onchange="handleAdvisorImageSelect(event)">
+          <button class="advisor-attach-btn" onclick="document.getElementById('advisor-img-input').click()" title="Lampirkan foto riwayat transaksi (galeri atau kamera)">📎</button>
+          <textarea class="advisor-input" id="advisor-input" placeholder="Tanya atau minta aksi..." rows="1"
             onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();triggerAdvisorSend()}"
             oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"></textarea>
           <button class="advisor-send" id="advisor-send-btn" onclick="triggerAdvisorSend()" title="Kirim">➤</button>

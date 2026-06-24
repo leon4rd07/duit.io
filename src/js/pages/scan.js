@@ -8,6 +8,7 @@ import { BANK_ICONS }   from '../lib/config.js'
 import * as DB          from '../lib/supabase.js'
 import { callAI }       from '../lib/ai.js'
 import { openCamera }   from '../ui/camera.js'
+import { extractJsonObject } from '../lib/jsonExtract.js'
 
 function renderScan(area, actions) {
   actions.innerHTML = ''
@@ -277,9 +278,9 @@ Kalau ada baris diskon (mis. "PERCENTAGE DISCOUNT", "Total Saving", potongan pro
     // Try to extract JSON
     let parsed
     try {
-      const jsonMatch = result.match(/\{[\s\S]*\}/)
-      parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(result)
+      parsed = extractJsonObject(result)
     } catch (e) {
+      console.warn('Scan receipt parse failed. Raw AI text:', result, e)
       state.scanIsAnalyzing = false
       navigate('scan')
       showScanResultModal('unclear', 'Hasil AI tidak bisa dibaca. Coba foto lebih jelas & terang.')
@@ -324,29 +325,34 @@ function showScanResult(area) {
       </div>
 
       ${(r.subtotal || r.tax_amount > 0 || r.discount_amount > 0) ? `
-        <div style="margin-top:10px;padding:10px 14px;background:var(--bg3);border-radius:10px;font-size:12.5px">
-          ${r.subtotal ? `<div style="display:flex;justify-content:space-between;padding:3px 0"><span style="color:var(--text2)">Subtotal</span><span>${fmt(r.subtotal)}</span></div>` : ''}
-          ${r.tax_amount > 0 ? `<div style="display:flex;justify-content:space-between;padding:3px 0"><span style="color:var(--text2)">Pajak</span><span>${fmt(r.tax_amount)}</span></div>` : ''}
-          ${r.discount_amount > 0 ? `<div style="display:flex;justify-content:space-between;padding:3px 0"><span style="color:var(--green)">Diskon</span><span style="color:var(--green)">-${fmt(r.discount_amount)}</span></div>` : ''}
+        <div style="margin-top:16px">
+          <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Rincian</div>
+          <div style="padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;font-size:13px">
+            ${r.subtotal ? `<div style="display:flex;justify-content:space-between;padding:5px 0"><span style="color:var(--text2)">Subtotal</span><span style="font-weight:600">${fmt(r.subtotal)}</span></div>` : ''}
+            ${r.tax_amount > 0 ? `<div style="display:flex;justify-content:space-between;padding:5px 0"><span style="color:var(--text2)">Pajak</span><span style="font-weight:600">${fmt(r.tax_amount)}</span></div>` : ''}
+            ${r.discount_amount > 0 ? `<div style="display:flex;justify-content:space-between;padding:5px 0"><span style="color:var(--green)">Diskon</span><span style="color:var(--green);font-weight:600">-${fmt(r.discount_amount)}</span></div>` : ''}
+          </div>
         </div>
       ` : ''}
 
       ${r.items && r.items.length ? `
-        <div style="margin-top:14px">
-          <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Item</div>
-          ${r.items.map(it => `
-            <div class="scan-result-item">
-              <div>
-                <div style="font-weight:600">${it.name || '?'}</div>
-                ${it.qty ? `<div style="font-size:11px;color:var(--text3)">${it.qty} × ${fmtShort(it.price||0)}</div>` : ''}
+        <div style="margin-top:16px">
+          <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Item (${r.items.length})</div>
+          <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:2px 14px">
+            ${r.items.map(it => `
+              <div class="scan-result-item">
+                <div>
+                  <div style="font-weight:600;font-size:13.5px">${it.name || '?'}</div>
+                  ${it.qty ? `<div style="font-size:12px;color:var(--text2);margin-top:2px">${it.qty} × ${fmtShort(it.price||0)}</div>` : ''}
+                </div>
+                <div style="font-weight:600;flex-shrink:0;margin-left:12px">${fmt((it.qty || 1) * (it.price || 0))}</div>
               </div>
-              <div style="font-weight:600">${fmt((it.qty || 1) * (it.price || 0))}</div>
-            </div>
-          `).join('')}
+            `).join('')}
+          </div>
         </div>
       ` : ''}
 
-      <div class="field" style="margin-top:16px">
+      <div class="field" style="margin-top:18px">
         <label>Simpan ke Rekening</label>
         <button type="button" class="acct-picker-btn" onclick="openScanAccountPicker()">
           <span>${(() => {

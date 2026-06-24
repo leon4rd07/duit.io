@@ -9,6 +9,7 @@ import * as DB                from '../lib/supabase.js'
 
 import { callAI }    from '../lib/ai.js'
 import { openCamera } from '../ui/camera.js'
+import { extractJsonObject } from '../lib/jsonExtract.js'
 
 // ===== SPLIT BILL v2 — GoPay-style flow =====
 // State machine: 'home' | 'scanning' | 'bill_detail' | 'members' | 'assign' | 'summary'
@@ -70,10 +71,11 @@ function renderSplitBill(area, actions) {
 }
 
 function sbGoBack() {
-  const steps = ['home','scanning','bill_detail','members','assign','summary'];
-  const idx = steps.indexOf(sbState.step);
-  sbState.step = steps[Math.max(0, idx-1)];
-  if (sbState.step === 'scanning') sbState.step = 'bill_detail'; // skip re-scanning
+  // Explicit back-map (clearer than index-walking + override, which previously
+  // caused bill_detail -> back -> 'scanning' -> immediately overridden back to
+  // 'bill_detail' again, making the back button look stuck/unresponsive).
+  const backMap = { bill_detail: 'home', members: 'bill_detail', assign: 'members', summary: 'assign' };
+  sbState.step = backMap[sbState.step] || 'home';
   navigate('splitbill');
 }
 
@@ -166,15 +168,15 @@ function sbRenderScanning(area) {
 }
 
 async function sbDoScan() {
-  const prompt = `Analisis struk/bon restoran ini dengan sangat detail. Kembalikan HANYA JSON valid:\n{"restaurant":"<nama>","items":[{"name":"<nama item>","qty":<angka>,"price":<harga per item Rupiah>}],"subtotal":<angka>,"tax_amount":<jumlah pajak Rupiah>,"service_amount":<jumlah service Rupiah>,"discount_amount":<jumlah diskon>,"total":<grand total Rupiah>}\nEkstrak SEMUA item kalau ada rinciannya. price = harga satuan SEBELUM dikali qty dan SEBELUM diskon. Kalau ada PB1/pajak/PPN hitung sebagai tax_amount. Kalau ada baris diskon/promo/saving, masukkan ke discount_amount. Kalau struk tidak punya rincian item (cth: struk pembayaran QR), kosongkan items jadi array kosong tapi tetap isi total dengan benar.`;
+  const prompt = `Analisis struk/bon restoran ini dengan sangat detail. Kembalikan HANYA JSON valid:\n{"restaurant":"<nama>","items":[{"name":"<nama item>","qty":<angka>,"price":<harga per item Rupiah>}],"subtotal":<angka>,"tax_amount":<jumlah pajak Rupiah>,"service_amount":<jumlah service Rupiah>,"discount_amount":<jumlah diskon>,"total":<grand total Rupiah>}\nEkstrak SEMUA item kalau ada rinciannya. price = harga satuan SEBELUM dikali qty dan SEBELUM diskon. Kalau ada PB1/pajak/PPN hitung sebagai tax_amount. Kalau ada baris diskon/promo/saving, masukkan ke discount_amount. Kalau struk tidak punya rincian item (cth: struk pembayaran QR), kosongkan items jadi array kosong tapi tetap isi total dengan benar. Jangan tambahkan penjelasan apapun di luar JSON.`;
+  let text = '';
   try {
-    const text = await callAI('split_bill_scan', prompt, sbState.scanImgData, sbState.scanImgMime);
+    text = await callAI('split_bill_scan', prompt, sbState.scanImgData, sbState.scanImgMime);
+    if (!text) throw new Error('Respons AI kosong');
 
-    // Robust JSON extraction — AI may wrap the JSON in markdown fences or add
-    // stray text before/after it. Extract just the {...} block first, like scan.js does,
-    // instead of naively JSON.parse()-ing the raw text (which broke on any extra formatting).
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    const parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(text.replace(/```json|```/g,'').trim());
+    // Robust extraction — finds the true matching closing brace instead of a
+    // greedy regex, so stray prose/braces after the JSON can't break parsing.
+    const parsed = extractJsonObject(text);
 
     sbState.note = parsed.restaurant || '';
     sbState.items = (parsed.items||[]).map(it => ({
@@ -191,6 +193,7 @@ async function sbDoScan() {
     sbState.step = 'bill_detail';
     navigate('splitbill');
   } catch(e) {
+    console.warn('Split bill scan parse failed. Raw AI text:', text, e);
     showToast('Gagal baca struk: hasil AI tidak terbaca. Isi manual ya 🙏', 'error');
     sbState.step = 'bill_detail';
     navigate('splitbill');

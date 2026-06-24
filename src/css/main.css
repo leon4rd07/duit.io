@@ -14,7 +14,7 @@
   --border2: rgba(255,255,255,0.10);
   --text: #f0ede8;
   --text2: #8a8582;
-  --text3: #6b6866;
+  --text3: #7d7a76;
   --red: #ff4757;
   --red-dim: rgba(255,71,87,0.14);
   --green: #2ed573;
@@ -42,7 +42,7 @@ body.light {
   --border2: rgba(0,0,0,0.12);
   --text: #1a1816;
   --text2: #6b6560;
-  --text3: #9e9890;
+  --text3: #8a8480;
   --red: #e0142a;
   --red-dim: rgba(224,20,42,0.10);
   --green: #128a48;
@@ -913,8 +913,8 @@ input[type="date"] {
   font-size: 11px; font-weight: 600; color: var(--text2);
 }
 .scan-result-item {
-  display: flex; justify-content: space-between; padding: 10px 4px;
-  border-bottom: 1px solid var(--border); font-size: 13px;
+  display: flex; justify-content: space-between; align-items: flex-start; padding: 12px 0;
+  border-bottom: 1px solid var(--border2); font-size: 13px;
 }
 .scan-result-item:last-child { border-bottom: none; }
 
