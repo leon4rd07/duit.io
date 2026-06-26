@@ -151,6 +151,15 @@ ${wishlistList}
 KATEGORI PENGELUARAN TERSEDIA: ${flatExpenseCats}
 KATEGORI PEMASUKAN TERSEDIA: ${flatIncomeCats}
 
+KEMAMPUAN KHUSUS — ANALISIS POCKET/KANTONG TABUNGAN:
+Beberapa rekening digital (mis. fitur "Pocket" di blu by BCA Digital, "Dompat" di Jenius, "Kantong" GoPay Tabungan, dll) membagi SATU saldo rekening menjadi beberapa sub-bagian virtual untuk tujuan berbeda (Dana Darurat, Liburan, dst). Total semua pocket SAMA DENGAN saldo rekening induknya — ini BUKAN rekening terpisah.
+Jika pengguna menyebutkan atau melampirkan gambar pocket/kantong tabungan, lakukan ini:
+1. Sebutkan semua pocket yang disebutkan/terlihat beserta nominalnya, lalu jumlahkan totalnya.
+2. Cocokkan total itu dengan saldo rekening yang PALING SESUAI dari daftar rekening pengguna di atas (cocokkan berdasar nama, mis. pocket dari "blu" → cocokkan ke rekening yang namanya mengandung "Blu").
+3. Jika total pocket SAMA dengan saldo rekening tercatat → konfirmasi cocok ✅, lalu beri insight soal alokasinya (mis. apakah dana darurat sudah cukup dibanding pengeluaran bulanan riil, proporsi tabungan jangka pendek vs panjang, dst).
+4. Jika BERBEDA → sebutkan selisihnya dengan jelas dalam Rupiah, jelaskan kemungkinan sebab (saldo di app belum diperbarui, ada transaksi yang belum tercatat, dll), dan sarankan langkah konkret (mis. perbarui saldo rekening tersebut lewat menu Rekening).
+5. JANGAN buat blok <ACTION> apapun untuk kemampuan ini — ini murni analisis/rekonsiliasi, bukan mengubah data.
+
 INSTRUKSI UMUM:
 - Kamu adalah penasihat keuangan yang benar-benar peduli pada kesehatan finansial ${userName}. Tujuanmu: membantu mereka membuat keputusan keuangan yang lebih baik, bukan sekadar membacakan ulang angka.
 - Jawab dalam Bahasa Indonesia yang hangat, santai, tapi tetap kredibel — seperti teman yang paham keuangan.
@@ -185,6 +194,7 @@ function renderAdvisor(area, actions) {
     'Apakah anggaranku sehat?',
     'Kasih tips hemat berdasarkan data transaksi aku',
     'Analisis tren keuangan 6 bulan terakhirku',
+    'Aku punya pocket tabungan, bisa dicocokkan?',
   ];
 
   area.innerHTML = `
@@ -208,7 +218,7 @@ function renderAdvisor(area, actions) {
         <div class="advisor-img-preview" id="advisor-img-preview"></div>
         <div class="advisor-input-wrap">
           <input type="file" id="advisor-img-input" accept="image/*" style="display:none" onchange="handleAdvisorImageSelect(event)">
-          <button class="advisor-attach-btn" onclick="document.getElementById('advisor-img-input').click()" title="Lampirkan foto riwayat transaksi (galeri atau kamera)">📎</button>
+          <button class="advisor-attach-btn" onclick="document.getElementById('advisor-img-input').click()" title="Lampirkan foto riwayat transaksi atau pocket tabungan">📎</button>
           <textarea class="advisor-input" id="advisor-input" placeholder="Tanya atau minta aksi..." rows="1"
             onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();triggerAdvisorSend()}"
             oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"></textarea>
@@ -491,10 +501,18 @@ async function sendAdvisorMsg(text, image = null) {
 
     let fullPrompt;
     if (image) {
-      // Bulk transaction extraction from an image (bank statement, e-wallet
-      // mutation screenshot, or a handwritten transaction log).
-      const imgInstructions = `PENTING — Pengguna baru melampirkan FOTO RIWAYAT TRANSAKSI (bisa berupa screenshot mutasi rekening/e-wallet, foto buku catatan, atau daftar transaksi tertulis).
-Tugasmu: baca SEMUA transaksi yang terlihat di gambar, lalu untuk SETIAP transaksi yang ditemukan buat SATU blok <ACTION> terpisah dengan format add_transaction (lihat definisi aksi di atas). Jangan gabungkan beberapa transaksi menjadi satu aksi.
+      // The attached image could be a transaction history (mutasi/e-wallet
+      // screenshot) OR a pocket/sub-savings breakdown (blu Pocket, Jenius
+      // Dompat, GoPay Tabungan, dll). Ask the AI to identify which one first,
+      // then follow the matching instruction set — only type A produces
+      // <ACTION> blocks; type B is analysis-only.
+      const imgInstructions = `PENTING — Pengguna baru melampirkan FOTO/SCREENSHOT terkait keuangan. Ini bisa salah satu dari dua tipe berikut — tentukan dulu tipenya sebelum merespons:
+
+TIPE A — RIWAYAT TRANSAKSI: screenshot mutasi rekening/e-wallet, foto buku catatan, atau daftar transaksi (ada tanggal + nominal masuk/keluar per baris).
+TIPE B — POCKET/KANTONG TABUNGAN: breakdown saldo yang dibagi ke beberapa "pocket"/"kantong"/"dompat" dalam SATU rekening (mis. fitur Pocket blu by BCA Digital, Dompat Jenius, Kantong GoPay Tabungan). Total semua pocket = saldo rekening induknya, BUKAN rekening terpisah.
+
+JIKA TIPE A:
+Baca SEMUA transaksi yang terlihat, lalu untuk SETIAP transaksi buat SATU blok <ACTION> terpisah dengan format add_transaction (lihat definisi aksi di atas). Jangan gabungkan beberapa transaksi menjadi satu aksi.
 Aturan ekstraksi:
 - tx_type: "expense" untuk uang keluar/debit, "income" untuk uang masuk/kredit.
 - amount: angka murni tanpa simbol Rp atau pemisah ribuan (mis. 50000, bukan "50.000" atau "Rp 50rb").
@@ -502,7 +520,12 @@ Aturan ekstraksi:
 - category: tebak dari deskripsi transaksi (mis. "INDOMARET" → Grocery, "GOJEK" → Transport).
 - date: ambil dari tanggal di gambar (format YYYY-MM-DD). Kalau gambar tidak menunjukkan tahun, asumsikan tahun ${new Date().getFullYear()}. Kalau benar-benar tidak ada tanggal sama sekali, gunakan hari ini.
 - note: deskripsi singkat transaksi sesuai yang tertulis di gambar.
-Sebelum daftar aksi, beri ringkasan SANGAT singkat (1 kalimat saja, mis. "Aku menemukan 5 transaksi di gambar ini, cek dan konfirmasi satu-satu di bawah ya."). JANGAN berikan analisis keuangan panjang di respons ini — fokus hanya pada ekstraksi transaksi. Pengguna akan meninjau dan konfirmasi tiap transaksi sebelum disimpan.`;
+Sebelum daftar aksi, beri ringkasan SANGAT singkat (1 kalimat saja, mis. "Aku menemukan 5 transaksi di gambar ini, cek dan konfirmasi satu-satu di bawah ya."). JANGAN berikan analisis keuangan panjang — fokus hanya pada ekstraksi transaksi.
+
+JIKA TIPE B:
+Sebutkan semua pocket yang terlihat beserta nominalnya, lalu jumlahkan totalnya. Cocokkan dengan saldo rekening yang paling sesuai dari daftar rekening pengguna di atas. Jika cocok, konfirmasi ✅ dan beri insight alokasinya. Jika berbeda, sebutkan selisihnya dengan jelas dan sarankan langkah konkret. JANGAN buat blok <ACTION> apapun untuk tipe ini — ini murni analisis/rekonsiliasi.
+
+Pengguna akan meninjau dan konfirmasi tiap aksi sebelum disimpan (khusus Tipe A).`;
       fullPrompt = systemPrompt + '\n\n' + imgInstructions +
         (text ? `\n\nCatatan tambahan dari pengguna: ${text}` : '');
     } else {
