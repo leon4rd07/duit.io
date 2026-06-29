@@ -88,8 +88,23 @@ function sbStepIndicator(current) {
 
 // ── HOME ──────────────────────────────────────────────────────────────
 function sbRenderHome(area) {
-  // Get split history from debts
-  const splits = state.debts.filter(d => d.note?.includes('split') || d.note?.includes('Split')).slice(0, 5);
+  // Group split history by event. One split event creates one debt row PER
+  // unpaid member, all sharing the exact same note text — group by that so
+  // a 3-person split shows as ONE card (people + total), not 3 duplicate rows.
+  const splitDebts = state.debts.filter(d => d.note?.toLowerCase().includes('split'));
+  const groups = {};
+  splitDebts.forEach(d => {
+    const key = d.note || 'Split Bill';
+    if (!groups[key]) groups[key] = { label: key.replace(/\s*—\s*bagian split/i,'') || 'Split Bill', members: [], total: 0, created_at: d.created_at };
+    groups[key].members.push({ name: d.contact_name, settled: d.settled });
+    groups[key].total += Number(d.amount);
+    if (d.created_at && (!groups[key].created_at || new Date(d.created_at) > new Date(groups[key].created_at))) {
+      groups[key].created_at = d.created_at;
+    }
+  });
+  const splits = Object.values(groups)
+    .sort((a,b) => new Date(b.created_at||0) - new Date(a.created_at||0))
+    .slice(0, 5);
 
   area.innerHTML = `<div class="sb-page">
     <div class="section-title">Bikin Split Bill Baru</div>
@@ -115,20 +130,27 @@ function sbRenderHome(area) {
     ${splits.length ? `
     <div style="margin-top:8px">
       <div class="section-title mb-10">Riwayat Split</div>
-      ${splits.map(d => `
+      ${splits.map(g => {
+        const allSettled = g.members.every(m=>m.settled);
+        const unpaidCount = g.members.filter(m=>!m.settled).length;
+        return `
         <div class="sb-hist-item" style="margin-bottom:8px">
           <div class="sb-hist-icon">🍽️</div>
           <div style="flex:1">
-            <div class="sb-hist-name">${d.note?.replace(/ — bagian split/,'') || 'Split Bill'}</div>
-            <div class="sb-hist-people">${d.contact_name}</div>
-            <div class="sb-hist-status">${d.settled?'✓ Lunas':'Menunggu pembayaran'}</div>
+            <div class="sb-hist-name">${g.label}</div>
+            <div class="sb-hist-people">${g.members.map(m=>m.name).join(', ')}</div>
+            <div class="sb-hist-status">${allSettled?'✓ Semua lunas':`${unpaidCount} dari ${g.members.length} belum bayar`}</div>
           </div>
           <div style="text-align:right">
-            <div class="sb-hist-amount">${fmtShort(d.amount)}</div>
-            ${!d.settled?`<span class="badge badge-amber" style="margin-top:4px">Belum</span>`:`<span class="badge badge-green" style="margin-top:4px">Lunas</span>`}
+            <div class="sb-hist-amount">${fmtShort(g.total)}</div>
+            ${allSettled?`<span class="badge badge-green" style="margin-top:4px">Lunas</span>`:`<span class="badge badge-amber" style="margin-top:4px">Belum</span>`}
           </div>
-        </div>`).join('')}
-    </div>` : ''}
+        </div>`;
+      }).join('')}
+    </div>` : `
+    <div style="margin-top:8px;padding:16px;text-align:center">
+      <div style="font-size:12px;color:var(--text3)">Belum ada riwayat split bill. Setelah kamu selesai bikin split dan tap "Kirim ke anggota & Simpan", riwayatnya akan muncul di sini.</div>
+    </div>`}
   </div>`;
 }
 
@@ -302,12 +324,25 @@ function sbGoToMembers() {
 }
 
 // ── MEMBERS ───────────────────────────────────────────────────────────
-const SUGGESTED_MEMBERS = ['Budi','Siti','Reza','Andi','Dewi','Kevin','Putri','Farhan','Nadia'];
+const SB_HISTORY_KEY = 'sb_member_history_v1';
+
+function getMemberHistory() {
+  try { return JSON.parse(localStorage.getItem(SB_HISTORY_KEY)) || []; } catch { return []; }
+}
+function addToMemberHistory(name) {
+  if (!name || !name.trim()) return;
+  let hist = getMemberHistory();
+  hist = hist.filter(n => n.toLowerCase() !== name.toLowerCase()); // dedup, bump to front
+  hist.unshift(name.trim());
+  hist = hist.slice(0, 20); // keep most recent 20
+  try { localStorage.setItem(SB_HISTORY_KEY, JSON.stringify(hist)); } catch {}
+}
 
 function sbRenderMembers(area) {
   const selected = sbState.members.filter(m => !m.isMe);
   const query = sbState.memberSearch.toLowerCase();
-  const suggestions = SUGGESTED_MEMBERS.filter(n =>
+  const history = getMemberHistory();
+  const suggestions = history.filter(n =>
     !sbState.members.find(m=>m.name===n) && (!query || n.toLowerCase().includes(query))
   );
 
@@ -361,10 +396,11 @@ function sbRenderMembers(area) {
       </div>
     </div>` : ''}
 
-    <!-- Suggestions -->
+    <!-- History (real names you've typed before — not generic placeholders) -->
+    ${suggestions.length ? `
     <div class="sb-bill-card">
       <div style="font-size:12px;font-weight:700;color:var(--text3);padding:12px 16px 6px;text-transform:uppercase;letter-spacing:.4px">
-        ${query ? 'Hasil pencarian' : 'Rekomendasi'}
+        ${query ? 'Hasil pencarian' : 'Riwayat'}
       </div>
       ${suggestions.slice(0,8).map(name => {
         const isSelected = sbState.members.find(m=>m.name===name);
@@ -376,6 +412,11 @@ function sbRenderMembers(area) {
           <div class="sb-member-check ${isSelected?'checked':''}">${isSelected?'✓':''}</div>
         </div>`;}).join('')}
     </div>
+    ` : (!sbState.memberSearch ? `
+    <div class="sb-bill-card" style="padding:18px 16px;text-align:center">
+      <div style="font-size:12px;color:var(--text3)">Belum ada riwayat nama. Ketik nama teman di atas untuk menambah — nama yang sudah dipakai bakal muncul di sini lain kali.</div>
+    </div>
+    ` : '')}
 
     <button class="sb-confirm-btn" onclick="sbGoToAssign()" ${selected.length===0?'style="opacity:.5;cursor:not-allowed"':''}>
       Konfirmasi anggota (${sbState.members.length} orang) →
@@ -386,7 +427,7 @@ function sbRenderMembers(area) {
 function sbToggleMember(name) {
   const idx = sbState.members.findIndex(m=>m.name===name);
   if (idx >= 0) { sbState.members.splice(idx,1); }
-  else { sbState.members.push({name, paid:false, isMe:false}); }
+  else { sbState.members.push({name, paid:false, isMe:false}); addToMemberHistory(name); }
   // Update item assignments
   sbState.items.forEach(it => { it.assignedTo = sbState.members.map((_,i)=>i); });
   navigate('splitbill');
@@ -394,6 +435,7 @@ function sbToggleMember(name) {
 function sbAddMemberByName(name) {
   if (!sbState.members.find(m=>m.name===name)) {
     sbState.members.push({name, paid:false, isMe:false});
+    addToMemberHistory(name);
     sbState.items.forEach(it => { it.assignedTo = sbState.members.map((_,i)=>i); });
   }
   sbState.memberSearch = '';
@@ -478,22 +520,29 @@ function sbGoToSummary() {
 function sbCalcMemberShares() {
   const n = sbState.members.length;
   if (!sbState.items.length) {
-    // Manual: equal split
+    // Manual: equal split, no item-level detail available
     const perPerson = Math.floor(sbState.totalAmount / n);
     const rem = Math.round(sbState.totalAmount - perPerson * n);
-    return sbState.members.map((m,i) => ({...m, share: perPerson + (i===0?rem:0)}));
+    return sbState.members.map((m,i) => ({...m, share: perPerson + (i===0?rem:0), breakdown: []}));
   }
-  // Item-based
+  // Item-based — track which items each member is paying for, and how much
   const subtotal = sbState.items.reduce((s,it)=>s+(it.price*it.qty),0);
   const extraRatio = subtotal > 0 ? sbState.totalAmount / subtotal : 1;
   return sbState.members.map((m,mi) => {
     let share = 0;
+    const breakdown = [];
     sbState.items.forEach(it => {
       if (it.assignedTo.includes(mi)) {
-        share += (it.price * it.qty) / it.assignedTo.length;
+        const rawShare = (it.price * it.qty) / it.assignedTo.length;
+        share += rawShare;
+        breakdown.push({
+          name: it.name,
+          splitCount: it.assignedTo.length,
+          amount: Math.round(rawShare * extraRatio),
+        });
       }
     });
-    return {...m, share: Math.round(share * extraRatio)};
+    return {...m, share: Math.round(share * extraRatio), breakdown};
   });
 }
 
@@ -517,18 +566,25 @@ function sbRenderSummary(area) {
     <div class="sb-bill-card" style="padding:16px 18px">
       <div style="font-size:13px;font-weight:700;margin-bottom:14px">Tagihan per orang</div>
       ${shares.map((m,i) => `
-        <div class="sb-final-member">
-          <div class="sb-final-avatar" style="background:${AVATAR_COLORS[i%8]}22;color:${AVATAR_COLORS[i%8]}">${(m.name||'?').charAt(0)}</div>
-          <div style="flex:1">
-            <div style="font-size:14px;font-weight:700">${m.isMe?'Saya (kamu)':m.name}</div>
-            <div class="sb-final-status" style="color:${m.paid?'var(--green)':'var(--text3)'}">${m.paid?'✓ Sudah bayar':'Belum bayar'}</div>
+        <div class="sb-final-member-wrap">
+          <div class="sb-final-member">
+            <div class="sb-final-avatar" style="background:${AVATAR_COLORS[i%8]}22;color:${AVATAR_COLORS[i%8]}">${(m.name||'?').charAt(0)}</div>
+            <div style="flex:1">
+              <div style="font-size:14px;font-weight:700">${m.isMe?'Saya (kamu)':m.name}</div>
+              <div class="sb-final-status" style="color:${m.paid?'var(--green)':'var(--text3)'}">${m.paid?'✓ Sudah bayar':'Belum bayar'}</div>
+            </div>
+            <div style="text-align:right">
+              <div class="sb-final-amount">Rp ${m.share.toLocaleString('id-ID')}</div>
+              ${!m.isMe?`<button class="btn btn-sm btn-ghost" style="margin-top:4px;font-size:11px" onclick="sbTogglePaid(${i})">
+                ${m.paid?'Batalkan':'Tandai bayar'}
+              </button>`:''}
+            </div>
           </div>
-          <div style="text-align:right">
-            <div class="sb-final-amount">Rp ${m.share.toLocaleString('id-ID')}</div>
-            ${!m.isMe?`<button class="btn btn-sm btn-ghost" style="margin-top:4px;font-size:11px" onclick="sbTogglePaid(${i})">
-              ${m.paid?'Batalkan':'Tandai bayar'}
-            </button>`:''}
-          </div>
+          ${m.breakdown && m.breakdown.length ? `
+            <div class="sb-member-breakdown">
+              ${m.breakdown.map(b => `<div class="sb-breakdown-row"><span>${b.name}${b.splitCount>1?` <span style="opacity:.6">(bagi ${b.splitCount})</span>`:''}</span><span>Rp ${b.amount.toLocaleString('id-ID')}</span></div>`).join('')}
+            </div>
+          ` : (sbState.items.length ? '' : `<div class="sb-member-breakdown-empty">Dibagi rata, tanpa rincian item</div>`)}
         </div>`).join('')}
     </div>
 
@@ -557,6 +613,9 @@ function sbCopyWA() {
   const lines = [`🍽️ *${sbState.note||'Split Bill'}*`, `Total: ${fmt(sbState.totalAmount)}`, ''];
   shares.forEach(m => {
     lines.push(`${m.isMe?'Saya':m.name}: Rp ${m.share.toLocaleString('id-ID')} ${m.paid?'✓':''}`);
+    if (m.breakdown && m.breakdown.length) {
+      m.breakdown.forEach(b => lines.push(`   • ${b.name}: Rp ${b.amount.toLocaleString('id-ID')}`));
+    }
   });
   navigator.clipboard.writeText(lines.join('\n'));
   showToast('Disalin! Paste ke WhatsApp 📱');
